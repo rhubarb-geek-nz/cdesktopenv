@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: SunOSdir2pkg.sh 94 2021-12-10 14:31:54Z rhubarb-geek-nz $
+# $Id: SunOSdir2pkg.sh 95 2021-12-11 05:50:41Z rhubarb-geek-nz $
 #
 
 getField()
@@ -106,7 +106,17 @@ setOwner()
 		f )
 			case "$D" in
 			*5* )
-				echo "$A" "$B" "$C" "$D" root bin
+				case "$C" in
+					*usr/dt/bin/dtmail | *usr/dt/bin/dtmailpr )
+						echo "$A" "$B" "$C" 2555 root mail
+						;;
+					*usr/dt/bin/dtappgather )
+						echo "$A" "$B" "$C" 4555 root bin
+						;;
+					* )
+						echo "$A" "$B" "$C" "$D" root bin
+						;;
+				esac
 				;;
 			* )
 				echo "$A" "$B" "$C" "$D" root root
