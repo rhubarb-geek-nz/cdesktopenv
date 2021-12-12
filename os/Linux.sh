@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: Linux.sh 43 2021-05-16 12:05:55Z rhubarb-geek-nz $
+# $Id: Linux.sh 52 2021-05-17 19:50:37Z rhubarb-geek-nz $
 #
 
 osRelease()
@@ -190,6 +190,29 @@ if test -z "$OBJDUMP"
 then
 	OBJDUMP=objdump
 fi
+
+find data -type f | while read N
+do
+	if test -x "$N"
+	then
+		if "$OBJDUMP" -p "$N" >/dev/null 2>&1
+		then
+			strip "$N"
+		fi
+	else
+		BN=$(basename "$N")
+		case "$BN" in
+			lib*.so* )
+				if "$OBJDUMP" -p "$N"
+				then
+					strip "$N"
+				fi
+				;;
+			* )
+				;;
+		esac
+	fi
+done
 
 ID=$(osRelease ID | sed "y/-/./")
 VERSION_ID=$(osRelease VERSION_ID)
