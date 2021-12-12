@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: package.sh 96 2021-12-12 01:00:35Z rhubarb-geek-nz $
+# $Id: package.sh 99 2021-12-12 17:00:00Z rhubarb-geek-nz $
 #
 
 if test 0 -eq $(id -u)
@@ -201,9 +201,14 @@ for d in "patches/$GITREV.$OPSYS.$MACHINE_ARCH" "patches/$GITREV.$OPSYS" "patche
 do
 	if test -f "$d"
 	then
-		svn log -q "$d" > /dev/null
+		if ( cd .git ) 
+		then
+			SVNREV=$( echo $SVNREV + $( git log --oneline "$d" | wc -l) | bc)
+		else
+			svn log -q "$d" > /dev/null
 
-		SVNREV=$( echo $SVNREV + $( svn log -q "$d" | grep -v "\-----------" | wc -l) | bc)
+			SVNREV=$( echo $SVNREV + $( svn log -q "$d" | grep -v "\-----------" | wc -l) | bc)
+		fi
 	fi
 done
 
