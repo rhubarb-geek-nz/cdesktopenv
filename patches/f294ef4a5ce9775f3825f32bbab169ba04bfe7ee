@@ -1,0 +1,71 @@
+diff --git a/cde/config/cf/DtInfo.tmpl b/cde/config/cf/DtInfo.tmpl
+index bef360eb..e4a205c5 100644
+--- a/cde/config/cf/DtInfo.tmpl
++++ b/cde/config/cf/DtInfo.tmpl
+@@ -412,7 +412,7 @@ TEMPLATE_OBJS=TemplateDB//**/*.o
+ 
+ #define TemplateObjs $(TEMPLATE_OBJS)
+ 
+-#if defined(i386Architecture) || defined(AMD64Architecture) || defined(AlphaArchitecture) || defined(ARMArchitecture) || defined(AArch64Architecture)
++#if defined(i386Architecture) || defined(AMD64Architecture) || defined(AlphaArchitecture) || defined(ARMArchitecture) || defined(AArch64Architecture) || defined(RISCVArchitecture)
+ # define ByteOrderDefines LittleEndianDefines
+ #elif defined(HAL32V7Architecture) || defined(SunArchitecture) || defined(SparcArchitecture) || defined(Sparc64Architecture) || defined(AIXArchitecture) || defined(HPArchitecture) || defined(PpcArchitecture)
+ # define ByteOrderDefines BigEndianDefines
+diff --git a/cde/config/cf/Imake.cf b/cde/config/cf/Imake.cf
+index b28af3ce..3b3452ec 100644
+--- a/cde/config/cf/Imake.cf
++++ b/cde/config/cf/Imake.cf
+@@ -166,6 +166,10 @@ XCOMM $TOG: Imake.cf /main/30 1998/04/28 13:55:25 barstow $
+ #  define SparcArchitecture
+ #  undef sparc
+ # endif
++# ifdef __aarch64__
++#  define AArch64Architecture
++#  undef __aarch64__
++# endif
+ #endif /* NetBSD */
+ 
+ #ifdef __FreeBSD__
+@@ -470,6 +474,10 @@ XCOMM $TOG: Imake.cf /main/30 1998/04/28 13:55:25 barstow $
+ #  endif
+ #  undef __powerpc__
+ # endif
++# ifdef __riscv
++#  define RISCVArchitecture
++#  undef __riscv
++# endif /* __riscv */
+ # if defined(__amd64__) || defined (__x86_64__)
+ #  undef __amd64__
+ #  undef __x86_64__
+diff --git a/cde/config/cf/linux.cf b/cde/config/cf/linux.cf
+index 8e40b576..aa983094 100644
+--- a/cde/config/cf/linux.cf
++++ b/cde/config/cf/linux.cf
+@@ -258,6 +258,14 @@ TIRPCINC =
+ # define LinuxMachineDefines	-D__alpha__
+ #endif /* AlphaArchitecture */
+ 
++#ifdef RISCVArchitecture
++# ifndef OptimizedCDebugFlags
++#  define OptimizedCDebugFlags  DefaultGcc2i386Opt
++# endif
++# define LinuxMachineDefines    -D__riscv__
++# define LSBBitOrder             YES
++#endif /* RISCVArchitecture */
++
+ #ifdef Mc68020Architecture
+ # ifndef OptimizedCDebugFlags
+ #  define OptimizedCDebugFlags	DefaultGcc2i386Opt
+diff --git a/cde/lib/DtHelp/Imakefile b/cde/lib/DtHelp/Imakefile
+index a091a3d3..aa159013 100644
+--- a/cde/lib/DtHelp/Imakefile
++++ b/cde/lib/DtHelp/Imakefile
+@@ -38,7 +38,7 @@ DEFINES = -DDTLIB $(LOCAL_DEFINES) \
+ 	  -DOSMINORVERSION=OSMinorVersion \
+ 	  $(ICONV_INBUF_DEFINE) $(BIT_ORDER_DEFINES)
+ 
+-#if defined(FreeBSDArchitecture)
++#if defined(FreeBSDArchitecture) || defined(OpenBSDArchitecture)
+ JPEGLIB = -ljpeg
+ #endif
+ 
