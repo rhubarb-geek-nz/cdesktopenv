@@ -1,0 +1,18 @@
+diff --git a/cde/config/cf/Imake.cf b/cde/config/cf/Imake.cf
+index 3b3452ec..f5dae299 100644
+--- a/cde/config/cf/Imake.cf
++++ b/cde/config/cf/Imake.cf
+@@ -192,6 +192,13 @@ XCOMM $TOG: Imake.cf /main/30 1998/04/28 13:55:25 barstow $
+ #  define AArch64Architecture
+ #  undef __aarch64__
+ # endif
++# if defined(__arm__) || defined(__arm32__)
++#   define ARMArchitecture
++#   define ARMBsdArchitecture
++#   undef __arm__
++#   undef __arm32__
++#	undef arm
++# endif
+ #endif /* __FreeBSD__ */
+ 
+ #ifdef sun
