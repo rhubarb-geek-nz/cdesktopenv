@@ -1,0 +1,182 @@
+diff --git a/cde/lib/csa/ansi_c.h b/cde/lib/csa/ansi_c.h
+index c3969391..f207ac53 100644
+--- a/cde/lib/csa/ansi_c.h
++++ b/cde/lib/csa/ansi_c.h
+@@ -37,13 +37,11 @@
+ #include <stdlib.h>
+ 
+ #ifdef SunOS
+-extern char	*fconvert(double, int, int*, int*, char*))
+-extern int	isascii(int);
+-extern int	kill(long, int);
++#include <floatingpoint.h>
++#include <ctype.h>
++#include <signal.h>
+ extern char	*mktemp(char*);
+-extern int	strcasecmp(const char*, const char*);
+-extern int	strncasecmp(const char*, const char*, size_t);
+-extern char	*strdup	(const char*);
++#include <strings.h>
+ #endif
+ 
+ #ifdef NEED_STRCASECMP
+diff --git a/cde/programs/dtinfo/DtMmdb/dti_excs/Exception.C b/cde/programs/dtinfo/DtMmdb/dti_excs/Exception.C
+index 173ceeb5..b946ee4d 100644
+--- a/cde/programs/dtinfo/DtMmdb/dti_excs/Exception.C
++++ b/cde/programs/dtinfo/DtMmdb/dti_excs/Exception.C
+@@ -255,3 +255,9 @@ Exception::is (const char *type, const char *this_class)
+   return (1);
+ }
+ #endif /* NATIVE_EXCEPTIONS */
++
++extern "C" void abort();
++
++void terminate() {
++	abort();
++}
+diff --git a/cde/programs/dtinfo/dtinfo/src/Imakefile b/cde/programs/dtinfo/dtinfo/src/Imakefile
+index fc56b564..f97ce88f 100644
+--- a/cde/programs/dtinfo/dtinfo/src/Imakefile
++++ b/cde/programs/dtinfo/dtinfo/src/Imakefile
+@@ -66,7 +66,7 @@ OLIASNORMALLIBS= \
+            OliasSearch/libOliasSearch.a \
+            Widgets/libWidgets.a \
+ 	   cgm/libcgm.a
+-#if defined(SunArchitecture) && CplusplusCompilerMajorVersion > 5
++#if defined(SunArchitecture) && CplusplusCompilerMajorVersion > 5 && 0
+ OLIASTLIBS= \
+ 	   Agents/libAgentsT.a \
+ 	   Basic/libBasicT.a \
+@@ -86,7 +86,7 @@ DLLIB=-ldl
+ 
+ OTHEROBJS=Support/InputNotifier.o
+ 
+-#if defined(SunArchitecture) && (CplusplusCompilerMajorVersion > 5)
++#if defined(SunArchitecture) && (CplusplusCompilerMajorVersion > 5) && 0
+   MMDBTEMPLATES=$(OLIAS)/mmdb/libMMDBTemplates.a
+   UAS_TEMPLATES=UAS/Base/libBaseT.a \
+                 UAS/DtSR/libDtSRT.a \
+@@ -355,7 +355,7 @@ makelib(Preferences)
+ makelibT(Managers)
+ makelib(Other)
+ makelibT(Agents)
+-#if defined(SunArchitecture) && CplusplusCompilerMajorVersion > 5
++#if defined(SunArchitecture) && CplusplusCompilerMajorVersion > 5 && 0
+ makelibsubsubdir(UAS,Base)
+ makelibsubsubdir(UAS,DtSR)
+ makelibsubsubdir(UAS,MMDB)
+@@ -367,7 +367,7 @@ makelibT(Marks)
+ makelibT(OnlineRender)
+ makelibT(OliasSearch)
+ makelib(cgm)
+-#if defined(SunArchitecture) && CplusplusCompilerMajorVersion > 5
++#if defined(SunArchitecture) && CplusplusCompilerMajorVersion > 5 && 0
+ makelibTsubsubdir(UAS,Base)
+ makelibTsubsubdir(UAS,DtSR)
+ makelibTsubsubdir(UAS,MMDB)
+diff --git a/cde/programs/dtinfo/dtinfogen/infolib/etc/Imakefile b/cde/programs/dtinfo/dtinfogen/infolib/etc/Imakefile
+index 799449ad..83bd49b2 100644
+--- a/cde/programs/dtinfo/dtinfogen/infolib/etc/Imakefile
++++ b/cde/programs/dtinfo/dtinfogen/infolib/etc/Imakefile
+@@ -283,7 +283,7 @@ CMD_OBJS = $(CMD_SRCS:.C=.o)
+ XCOMM #######################################
+ XCOMM Template handling
+ XCOMM #######################################
+-#if defined(SunArchitecture) && CplusplusCompilerMajorVersion > 5
++#if defined(SunArchitecture) && CplusplusCompilerMajorVersion > 5 && 0
+ all::$(CMD_OBJS)
+ SimpleLibraryT(OLAFParse,$(OBJS),$(LIBDIR))
+ SimpleCPlusPlusProgram(NodeParser, NodeParser.o libOLAFParse.a libOLAFParseT.a,$(Libs))
+diff --git a/cde/programs/dtinfo/dtinfogen/mmdb/StyleSheet/Imakefile b/cde/programs/dtinfo/dtinfogen/mmdb/StyleSheet/Imakefile
+index 2f51e267..50699d6d 100644
+--- a/cde/programs/dtinfo/dtinfogen/mmdb/StyleSheet/Imakefile
++++ b/cde/programs/dtinfo/dtinfogen/mmdb/StyleSheet/Imakefile
+@@ -187,7 +187,7 @@ ALL_MMDB_OBJS =	$(API_OBJS)		$(BTREE_OBJS) \
+ 
+ #ifdef AIXArchitecture
+ Libs=	$(STATIC) $(ALL_MMDB_OBJS)  $(MATH_LIB) $(DTSVC_LIBRARY) $(TTLIB) $(SYS_LIBRARIES)
+-#elif defined(SunArchitecture) && CplusplusCompilerMajorVersion > 5
++#elif defined(SunArchitecture) && CplusplusCompilerMajorVersion > 5 && 0
+ Libs=	$(STATIC) -L../../../mmdb -lMMDB -lMMDBTemplates $(MATH_LIB) $(SYS_LIBRARIES)
+ #else
+ Libs=	$(STATIC) -L../../../mmdb -lMMDB $(MATH_LIB) $(SYS_LIBRARIES)
+diff --git a/cde/programs/dtlogin/config/Xservers.src b/cde/programs/dtlogin/config/Xservers.src
+index 1ef3ef88..ebad1e42 100644
+--- a/cde/programs/dtlogin/config/Xservers.src
++++ b/cde/programs/dtlogin/config/Xservers.src
+@@ -96,7 +96,7 @@ XCOMM ##########################################################################
+ #elif defined (_AIX)
+    :0	Local local@console /usr/bin/X11/X -T -force :0
+ #elif defined (sun)
+-   :0	Local local_uid@console root /usr/openwin/bin/X :0 -nobanner
++   :0	Local local_uid@console root /usr/bin/Xorg :0 -nobanner
+ #elif defined (__hpux)
+    *	Local local@console /usr/bin/X11/X :0
+ #elif defined (_NO_CONSOLE)
+diff --git a/cde/programs/dtlogin/solaris.c b/cde/programs/dtlogin/solaris.c
+index bfea62d5..4c32d650 100644
+--- a/cde/programs/dtlogin/solaris.c
++++ b/cde/programs/dtlogin/solaris.c
+@@ -58,6 +58,7 @@
+  */
+ 
+ #include <sys/types.h>
++#include <stdlib.h>
+ #include <utmpx.h>
+ #include <stdio.h>
+ #include <string.h>
+@@ -88,7 +89,7 @@ static void end_conv();
+ 
+ static struct ia_conv ia_conv = {login_conv, login_conv, end_conv, NULL};
+ static char *saved_user_passwd;
+-#endif SUNAUTH
++#endif
+ 
+ 
+ /****************************************************************************
+@@ -370,7 +371,7 @@ solaris_setcred(char* prog_name, char* user, uid_t uid, gid_t gid)
+ 
+ 	return(status);
+ }
+-#endif SUNAUTH 
++#endif
+ 
+ 
+ /***************************************************************************
+@@ -645,7 +646,7 @@ login_conv(int conv_id, int num_msg, struct ia_message **msg,
+ static void
+ end_conv()
+ {}
+-#endif SUNAUTH 
++#endif
+ 
+ #ifdef PAM
+ /****************************************************************************
+@@ -965,4 +966,4 @@ solaris_reset_utmp_mgmt(
+ 
+ }
+ 
+-#endif PAM
++#endif
+diff --git a/cde/programs/dtprintinfo/objects/PrintObj/ParseJobs.C b/cde/programs/dtprintinfo/objects/PrintObj/ParseJobs.C
+index de1781ac..7b34cbff 100644
+--- a/cde/programs/dtprintinfo/objects/PrintObj/ParseJobs.C
++++ b/cde/programs/dtprintinfo/objects/PrintObj/ParseJobs.C
+@@ -480,7 +480,7 @@ static void check_dir(char *printer, char *tmp_dir, StatusLineList *job_list,
+    if (getenv("REQ_DIR"))
+        snprintf(request, sizeof(request), "%s/%s", getenv("REQ_DIR"), tmp_dir);
+    else
+-       sprintf(request, sizeof(request), "%s", REQ_DIR, tmp_dir);
++       snprintf(request, sizeof(request), "%s", REQ_DIR, tmp_dir);
+    req_len = strlen(request);
+    snprintf(spool_dir, sizeof(spool_dir), "%s/%s", SPOOL_DIR, tmp_dir);
+    spool_len = strlen(spool_dir);
+@@ -505,7 +505,7 @@ static void check_dir(char *printer, char *tmp_dir, StatusLineList *job_list,
+ 
+ //      *(request + req_len) = '\0';
+ //      strcat(request + req_len, dir_struct->d_name);
+-      std:string file_req(request);
++      std::string file_req(request);
+       file_req.append(dir_struct->d_name);
+ 
+       if (!(req = fopen(file_req.c_str(), "r")))

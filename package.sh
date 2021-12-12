@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: package.sh 41 2021-05-08 21:47:23Z rhubarb-geek-nz $
+# $Id: package.sh 94 2021-12-10 14:31:54Z rhubarb-geek-nz $
 #
 
 if test 0 -eq $(id -u)
@@ -26,27 +26,40 @@ then
 	false
 fi
 
-for d in de_DE es_ES fr_FR it_IT
-do
-	MISSINGLANG=true
+MACHINE_ARCH="$(uname -m)"
+OPSYS="$(uname -s)"
 
-	for e in $( locale -a | if grep $d; then true; fi  )
-	do
-		case "$e" in
-			$d.utf8 | $d.UTF-8 )
-				MISSINGLANG=false
-				;;
-			* )
-				;;
-		esac
-	done 
+case "$OPSYS" in
+	SunOS )
+		for d in de es fr it
+		do
+			pkg info "system/osnet/locale/$d"
+		done
+		;;
+	* )
+		for d in de_DE es_ES fr_FR it_IT
+		do
+			MISSINGLANG=true
 
-	if $MISSINGLANG
-	then
-		echo locale for $d not found 1>&2
-		false
-	fi
-done
+			for e in $( locale -a | if grep $d; then true; fi  )
+			do
+				case "$e" in
+					$d.utf8 | $d.UTF-8 )
+						MISSINGLANG=false
+						;;
+					* )
+						;;
+				esac
+			done 
+
+			if $MISSINGLANG
+			then
+				echo locale for $d not found 1>&2
+				false
+			fi
+		done
+		;;
+esac
 
 getVersion()
 {
@@ -102,9 +115,6 @@ if test -n "$1"
 then
 	CHECKOUT_VERSION="$1"
 fi
-
-MACHINE_ARCH="$(uname -m)"
-OPSYS="$(uname -s)"
 
 cleanup
 
@@ -325,8 +335,22 @@ do
 				esac
 			done
 		else
-			ls -ld filesets/HP/*/data/$N
-			false
+			if ls -ld filesets/HP/CDE-MAN/data/$N
+			then
+				for d in filesets/HP/*/data/$N
+				do
+					case "$d" in
+						filesets/HP/CDE-MAN/data/$N )
+							;;
+						* )
+							rm "$d"
+							;;
+					esac
+				done
+			else
+				ls -ld filesets/HP/*/data/$N
+				false
+			fi
 		fi
 	fi
 done
@@ -397,7 +421,7 @@ else
 
 	if test "$SVNREV" -gt 0
 	then
-		TARNAME="$TARNNAME"_"$SVNREV"
+		TARNAME="$TARNAME"_"$SVNREV"
 	fi
 
 	TARNAME="$TARNAME".tar
