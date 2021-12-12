@@ -1,5 +1,18 @@
+diff --git a/cde/config/cf/linux.cf b/cde/config/cf/linux.cf
+index a93176a..7e5e0e3 100644
+--- a/cde/config/cf/linux.cf
++++ b/cde/config/cf/linux.cf
+@@ -240,7 +240,7 @@ TIRPCINC =
+ 
+ #ifdef AArch64Architecture
+ # ifndef OptimizedCDebugFlags
+-#  define OptimizedCDebugFlags -fmessage-length=0 -grecord-gcc-switches -O2 -Wall -D_FORTIFY_SOURCE=2 -fstack-protector-strong -funwind-tables -fasynchronous-unwind-tables -fstack-clash-protection -g -fno-strict-aliasing
++#  define OptimizedCDebugFlags -fmessage-length=0 -grecord-gcc-switches -O2 -Wall -D_FORTIFY_SOURCE=2 -fstack-protector-strong -funwind-tables -fasynchronous-unwind-tables -g -fno-strict-aliasing
+ # endif
+ # define LinuxMachineDefines   -D__aarch64__
+ # define ServerOSDefines   XFree86ServerOSDefines -DDDXTIME
 diff --git a/cde/programs/dtksh/ksh93/src/lib/libast/sfio/sfvprintf.c b/cde/programs/dtksh/ksh93/src/lib/libast/sfio/sfvprintf.c
-index e47c990e..a40aa192 100644
+index e47c990..a40aa19 100644
 --- a/cde/programs/dtksh/ksh93/src/lib/libast/sfio/sfvprintf.c
 +++ b/cde/programs/dtksh/ksh93/src/lib/libast/sfio/sfvprintf.c
 @@ -92,10 +92,10 @@
