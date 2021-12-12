@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: Linux.sh 41 2021-05-08 21:47:23Z rhubarb-geek-nz $
+# $Id: Linux.sh 43 2021-05-16 12:05:55Z rhubarb-geek-nz $
 #
 
 osRelease()
@@ -164,12 +164,22 @@ do
 		debian | ubuntu )
 			MAKEDEB=true
 			;;
-		rhel | centos | fedora )
+		rhel | centos | fedora | suse | opensuse )
 			MAKERPM=true
 			;;
 		* )
 			;;
 	esac
+
+	if $MAKEDEB
+	then
+		break
+	fi
+
+	if $MAKERPM
+	then
+		break
+	fi
 done
 
 cleanup
@@ -181,7 +191,7 @@ then
 	OBJDUMP=objdump
 fi
 
-ID=$(osRelease ID)
+ID=$(osRelease ID | sed "y/-/./")
 VERSION_ID=$(osRelease VERSION_ID)
 RELEASE="$SVNREV.$ID.$VERSION_ID"
 

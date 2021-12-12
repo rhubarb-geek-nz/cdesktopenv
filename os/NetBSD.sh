@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: NetBSD.sh 41 2021-05-08 21:47:23Z rhubarb-geek-nz $
+# $Id: NetBSD.sh 43 2021-05-16 12:05:55Z rhubarb-geek-nz $
 #
 
 VERSION="$1"
@@ -65,4 +65,4 @@ cat > meta/DESC << EOF
 The Common Desktop Environment was created by a collaboration of Sun, HP, IBM, DEC, SCO, Fujitsu and Hitachi. Used on a selection of commercial UNIXs, it is now available as open-source software for the first time.
 EOF
 
-pkg_create -v -B meta/BUILD_INFO -P "$PKGDEP" -c meta/COMMENT -g wheel -u root -d meta/DESC -I / -f meta/CONTENTS -p data -F gzip "$PKGNAME.tgz"
+pkg_create -v -B meta/BUILD_INFO -P "$PKGDEP" -c meta/COMMENT -g wheel -u root -d meta/DESC -I / -f meta/CONTENTS -p data -F xz "$PKGNAME.tgz"
