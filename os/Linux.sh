@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: Linux.sh 52 2021-05-17 19:50:37Z rhubarb-geek-nz $
+# $Id: Linux.sh 56 2021-05-27 22:35:00Z rhubarb-geek-nz $
 #
 
 osRelease()
@@ -149,12 +149,14 @@ cleanup()
 test -n "$1"
 test -n "$2"
 
+DIRNAME=$(dirname "$0")
 MACHINE_ARCH=$(uname -m)
 VERSION="$1"
 SVNREV="$2"
 MAKERPM=false
 MAKEDEB=false
 MADEPKG=false
+MAKESUDO=false
 
 SVNREV=$(echo 1+$SVNREV | bc)
 
@@ -166,6 +168,10 @@ do
 			;;
 		rhel | centos | fedora | suse | opensuse )
 			MAKERPM=true
+			;;
+		slackware )
+			MAKESUDO=true
+			MAKESUDOID="$d"
 			;;
 		* )
 			;;
@@ -180,6 +186,11 @@ do
 	then
 		break
 	fi
+
+	if $MAKESUDO
+	then
+		break
+	fi
 done
 
 cleanup
@@ -190,6 +201,8 @@ if test -z "$OBJDUMP"
 then
 	OBJDUMP=objdump
 fi
+
+test -d data
 
 find data -type f | while read N
 do
@@ -334,6 +347,13 @@ EOF
 
 	PWD=$(pwd)
 	rpmbuild --buildroot "$PWD/data" --define "_rpmdir $PWD/rpms" -bb "$PWD/rpm.spec"
+
+	MADEPKG=true
+fi
+
+if $MAKESUDO
+then
+	sudo "$DIRNAME/$MAKESUDOID.sh" "$VERSION" "$SVNREV" "$(id -u):$(id -g)"
 
 	MADEPKG=true
 fi
