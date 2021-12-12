@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: slackware.sh 56 2021-05-27 22:35:00Z rhubarb-geek-nz $
+# $Id: slackware.sh 98 2021-12-12 12:37:08Z rhubarb-geek-nz $
 #
 
 OSID=slack
@@ -68,6 +68,12 @@ cdesktopenv:
 EOF
 
 chown -R 0:0 data
+
+find data -type f | xargs chmod -w
+
+chgrp mail data/usr/dt/bin/dtmail data/usr/dt/bin/dtmailpr
+chmod 2555 data/usr/dt/bin/dtmail data/usr/dt/bin/dtmailpr
+chmod 4555 data/usr/dt/bin/dtappgather
 
 DESTPKG=cdesktopenv-"$VERSION"-"$PKGARCH"-"$SVNREV"_"$OSID$OSVER".txz
 

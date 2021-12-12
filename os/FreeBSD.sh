@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: FreeBSD.sh 41 2021-05-08 21:47:23Z rhubarb-geek-nz $
+# $Id: FreeBSD.sh 98 2021-12-12 12:37:08Z rhubarb-geek-nz $
 #
 
 VERSION="$1"
@@ -77,13 +77,47 @@ echo ---- MANIFEST START ---
 cat meta/MANIFEST
 echo ---- MANIFEST END ---
 
+find data -type f | xargs chmod -w
+
+chmod 2555 data/usr/dt/bin/dtmail
+chmod 2555 data/usr/dt/bin/dtmailpr
+chmod 4555 data/usr/dt/bin/dtappgather
+
 (
 	cd data
 	find */dt -type d | while read N
 	do
 		echo @dir $N
 	done
-	find */dt -type f
+	find */dt -type f | (
+		CURGRP=
+		GRP=
+
+		while read N
+		do
+			case "$N" in
+				usr/dt/bin/dtmail | usr/dt/bin/dtmailpr )
+					GRP="mail"
+					;;
+				* )
+					GRP=
+					;;
+			esac
+
+			if test "$CURGRP" != "$GRP"
+			then
+				CURGRP="$GRP"
+				if test -n "$CURGRP"
+				then
+					echo "@group $CURGRP"
+				else
+					echo "@group"
+				fi
+			fi
+
+			echo "$N"
+		done
+	)
 	find */dt -type l
 ) > meta/PLIST
 

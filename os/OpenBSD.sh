@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: OpenBSD.sh 41 2021-05-08 21:47:23Z rhubarb-geek-nz $
+# $Id: OpenBSD.sh 98 2021-12-12 12:37:08Z rhubarb-geek-nz $
 #
 
 VERSION="$1"
@@ -48,6 +48,10 @@ done
 test -n "$VERSION"
 
 mkdir meta
+
+find data -type f | xargs chmod -w
+
+chmod 4555 data/usr/dt/bin/dtappgather
 
 (
 	set -e

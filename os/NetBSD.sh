@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: NetBSD.sh 43 2021-05-16 12:05:55Z rhubarb-geek-nz $
+# $Id: NetBSD.sh 98 2021-12-12 12:37:08Z rhubarb-geek-nz $
 #
 
 VERSION="$1"
@@ -47,6 +47,12 @@ PKGDEP="ast-ksh freetype2 font-adobe-75dpi font-adobe-100dpi fontconfig motif tc
     echo PKGTOOLS_VERSION=$(pkg_info -V)
 ) > meta/BUILD_INFO
 
+find data -type f | xargs chmod -w
+
+chmod 2555 data/usr/dt/bin/dtmail
+chmod 2555 data/usr/dt/bin/dtmailpr
+chmod 4555 data/usr/dt/bin/dtappgather
+
 (
 	set -e
 	echo "@name $PKGNAME"
@@ -55,7 +61,35 @@ PKGDEP="ast-ksh freetype2 font-adobe-75dpi font-adobe-100dpi fontconfig motif tc
 	do
 		echo "@pkgdir $N"
 	done
-	find */dt -type f
+	find */dt -type f | (
+		CURGRP=
+		GRP=
+
+		while read N
+		do
+			case "$N" in
+				usr/dt/bin/dtmail | usr/dt/bin/dtmailpr )
+					GRP="mail"
+					;;
+				* )
+					GRP=
+					;;
+			esac
+
+			if test "$CURGRP" != "$GRP"
+			then
+				CURGRP="$GRP"
+				if test -n "$CURGRP"
+				then
+					echo "@group $CURGRP"
+				else
+					echo "@group"
+				fi
+			fi
+
+			echo "$N"
+		done
+	)
 	find */dt -type l
 ) > meta/CONTENTS
 
