@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: package.sh 28 2021-01-27 04:36:10Z rhubarb-geek-nz $
+# $Id: package.sh 30 2021-01-28 17:57:11Z rhubarb-geek-nz $
 #
 
 if test 0 -eq `id -u`
@@ -577,7 +577,7 @@ Summary: Common Desktop Environment Login Manager
 Name: dtlogin-service
 Version: $VERSION
 Release: $RELEASE
-Requires: dtlogin
+Requires: dtlogin, xorg-x11-server-Xorg
 BuildArch: noarch
 License: LGPLv2+
 Group: User Interface/X
