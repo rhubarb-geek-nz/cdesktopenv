@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: package.sh 94 2021-12-10 14:31:54Z rhubarb-geek-nz $
+# $Id: package.sh 96 2021-12-12 01:00:35Z rhubarb-geek-nz $
 #
 
 if test 0 -eq $(id -u)
@@ -210,11 +210,6 @@ done
 echo VERSION=$VERSION SVNREV=$SVNREV
 
 test -n "$VERSION"
-
-if test -z "$OBJDUMP"
-then
-	OBJDUMP=objdump
-fi
 
 for db in cdesktopenv-code/cde/databases/CDE-*.db
 do
