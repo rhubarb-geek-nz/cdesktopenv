@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: Linux.sh 96 2021-12-12 01:00:35Z rhubarb-geek-nz $
+# $Id: Linux.sh 97 2021-12-12 06:51:55Z rhubarb-geek-nz $
 #
 
 osRelease()
@@ -387,7 +387,11 @@ then
 	find data/usr -type f | xargs chmod -w
 
 	rpmbuild --version
-	cat > rpm.spec <<EOF
+
+	(
+		cd data
+
+		cat <<EOF
 Summary: CDE - Common Desktop Environment
 Name: cdesktopenv
 Version: $VERSION
@@ -407,12 +411,43 @@ licence by The Open Group.
 
 %files
 %defattr(-,root,root)
-/var/dt
-/etc/dt
-/usr/dt
+EOF
+
+		find */dt | while read N
+		do
+			if test -h "$N"
+			then
+				echo "/$N"
+			else
+				if test -d "$N"
+				then
+					echo "%dir %attr(555,root,root) /$N"
+				else
+					case "$N" in
+						usr/dt/bin/dtappgather )
+							echo "%attr(4555,root,root) /$N"
+							;;
+						usr/dt/bin/dtmail | usr/dt/bin/dtmailpr )
+							echo "%attr(2555,root,mail) /$N"
+							;;
+						* )
+							if test -x "$N"
+							then
+								echo "%attr(555,root,root) /$N"
+							else
+								echo "%attr(444,root,root) /$N"
+							fi
+							;;
+					esac
+				fi
+			fi
+		done
+
+		cat <<EOF
 
 %clean
 EOF
+	) > rpm.spec
 
 	PWD=$(pwd)
 	rpmbuild --buildroot "$PWD/data" --define "_rpmdir $PWD/rpms" --define "_build_id_links none" -bb "$PWD/rpm.spec"
