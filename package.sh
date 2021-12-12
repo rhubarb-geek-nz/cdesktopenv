@@ -17,78 +17,26 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: package.sh 17 2021-01-17 15:56:51Z rhubarb-geek-nz $
+# $Id: package.sh 28 2021-01-27 04:36:10Z rhubarb-geek-nz $
 #
 
-description()
-{
-	while read A B
+if test 0 -eq `id -u`
+then
+	echo This should not need to be run as root, stay safe out there. 1>&2
+	false
+fi
+
+for d in de_DE es_ES fr_FR it_IT
+do
+	for e in iso88591 utf8
 	do
-		if test "$A" = "$1"
+		if test -z "`locale -a  | grep $d.$e`"
 		then
-			echo "$B"
-			break 
+			echo locale $d.$e not found 1>&2
+			false
 		fi
-	done << EOF
-CDE-C           		CDE runtime
-CDE-DE          		CDE German runtime
-CDE-ES          		CDE Spanish runtime
-CDE-FR          		CDE French runtime
-CDE-IT          		CDE Italian runtime
-CDE-JP          		CDE Japanese runtime
-CDE-FONTS       		CDE fonts
-CDE-DEMOS       		CDE developer environment
-CDE-HELP-C      		CDE help
-CDE-HELP-DE     		CDE German help
-CDE-HELP-ES     		CDE Spanish help
-CDE-HELP-FR     		CDE French help
-CDE-HELP-IT     		CDE Italian help
-CDE-HELP-JP     		CDE Japanese help
-CDE-HELP-PRG    		CDE help developers\' kit 
-CDE-HELP-RUN    		CDE help runtime
-CDE-ICONS       		CDE icon files
-CDE-INC         		CDE Dev. Env include files
-CDE-INFO        		CDE public DTD and SGML data
-CDE-INFOLIB-C   		CDE InfoLibs
-CDE-INFOLIB-DE  		CDE German InfoLibs
-CDE-INFOLIB-ES  		CDE Spanish InfoLibs
-CDE-INFOLIB-FR  		CDE French InfoLibs
-CDE-INFOLIB-IT  		CDE Italian InfoLibs
-CDE-INFOLIB-JP  		CDE Japanese InfoLibs
-CDE-MAN         		CDE man pages
-CDE-MAN-DEV         	CDE developer man pages
-CDE-MIN         		CDE minimum runtime
-CDE-MSG-C       		CDE message files
-CDE-MSG-DE      		CDE German message files
-CDE-MSG-ES      		CDE Spanish message files
-CDE-MSG-FR      		CDE French message files
-CDE-MSG-IT      		CDE Italian message files
-CDE-MSG-JP      		CDE Japanese message files
-CDE-PRG         		CDE Dev. Env library
-CDE-RUN         		CDE runtime
-CDE-SHLIBS      		CDE shared libraries
-CDE-TT          		CDE Tooltalk
-X11.Dt       		   	Common Desktop Environment
-X11.Dt.ToolTalk 		CDE ToolTalk Support
-X11.Dt.adt				CDE Application Developers\' Toolkit
-X11.Dt.bitmaps  		CDE Bitmaps
-X11.Dt.compat   		CDE Compatibility
-X11.Dt.helpinfo 		CDE Help Files and Volumes
-X11.Dt.helpinfo.de_DE 	CDE German Help Files and Volumes
-X11.Dt.helpinfo.es_ES 	CDE Spanish Help Files and Volumes
-X11.Dt.helpinfo.fr_FR 	CDE French Help Files and Volumes
-X11.Dt.helpinfo.it_IT 	CDE Italian Help Files and Volumes
-X11.Dt.helpmin  		CDE Minimum Help Files
-X11.Dt.helpmin.de_DE  	CDE German Minimum Help Files
-X11.Dt.helpmin.es_ES  	CDE Spanish Minimum Help Files
-X11.Dt.helpmin.fr_FR  	CDE French Minimum Help Files
-X11.Dt.helpmin.it_IT  	CDE Italian Minimum Help Files
-X11.Dt.helprun        	CDE Runtime Help
-X11.Dt.lib	    		CDE Runtime Libraries
-X11.Dt.rte	   			Common Desktop Environment
-dtlogin-service			CDE login service
-EOF
-}
+	done
+done
 
 getVersion()
 {
@@ -111,6 +59,24 @@ EOF
 			done
 		done
 		echo $VERSION
+	)
+}
+
+osRelease()
+{
+	(
+		set -e
+		. /etc/os-release
+		case "$1" in
+			ID )
+				echo "$ID"
+				;;
+			VERSION_ID )
+				echo "$VERSION_ID"
+				;;
+			* )
+			;;
+		esac
 	)
 }
 
@@ -207,87 +173,57 @@ get_needed()
 	done
 }
 
+cleanup()
+{
+	for d in cdesktopenv-code filesets rpms rpm.spec data data.tar.* control control.tar.* debian-binary
+	do
+		if test -w "$d"
+		then
+			rm -rf "$d"
+		fi
+	done
+}
+
 if test -n "$1"
 then
-	VERSION="$1"
-else
-	VERSION="2.3.2"
+	CHECKOUT_VERSION="$1"
 fi
 
 MACHINE_ARCH=`uname -m`
 
-cleanup()
-{
-	rm -rf cdesktopenv-code filesets
-}
+MAKE_DEB=false
+MAKE_RPM=true
 
 cleanup
 
 trap cleanup 0
 
-git clone git://git.code.sf.net/p/cdesktopenv/code cdesktopenv-code
-
-(
-	set -e
-	cd cdesktopenv-code
-	if test -n "$VERSION"
-	then
-		git checkout "$VERSION"
-	fi
-	cd cde
-	case "$MACHINE_ARCH" in
-		aarch64 )
-			patch -p0 <<'EOF'
---- programs/dtksh/ksh93/src/lib/libast/sfio/sfvprintf.c	2021-01-14 17:13:54.191401167 +0000
-+++ programs/dtksh/ksh93/src/lib/libast/sfio/sfvprintf.c	2021-01-14 17:19:54.178126980 +0000
-@@ -92,10 +92,10 @@
- 	}
- #define GETARGL(elt,arge,argf,args,etype,type,fmt,t_user,n_user) \
- 	{ if(!argf) \
--		__va_copy( elt, va_arg(args,type) ); \
-+		__va_copy( elt[0], va_arg(args,type)[0] ); \
- 	  else if((*argf)(fmt,(char*)(&arge),t_user,n_user) < 0) \
- 		goto pop_fa; \
--	  else	__va_copy( elt, arge ); \
-+	  else	__va_copy( elt[0], arge[0] ); \
- 	}
- 
- #if __STD_C
-@@ -309,7 +309,7 @@
- #else
- 			GETARGL(argsp,argsp,argf,args,va_list*,va_list*,'2',t_user,n_user);
- 			__va_copy( fa->args, args );
--			__va_copy( args, argsp );
-+			__va_copy( args, argsp[0] );
- #endif
- 			fa->argf.p = argf;
- 			fa->extf.p = extf;
-EOF
-			;;
-		* )
-			;;
-	esac
-
-	make World
-)
-
-ls -ld cdesktopenv-code/cde/exports/include/Dt/Dt.h cdesktopenv-code/cde/programs/dtksh/dtksh
-
-if test -n "$1"
+if test ! -d cdesktopenv-code
 then
-	VERSION="$1"
+	git clone git://git.code.sf.net/p/cdesktopenv/code cdesktopenv-code
+
+	(
+		set -e
+		cd cdesktopenv-code
+		if test -n "$CHECKOUT_VERSION"
+		then
+			git checkout "$CHECKOUT_VERSION"
+		fi
+		cd cde
+		make World
+	)
+fi
+
+ls -ld cdesktopenv-code/cde/exports/include/Dt/Dt.h cdesktopenv-code/cde/programs/dtksh/dtksh cdesktopenv-code/cde/programs/dtdocbook/instant/instant
+
+if test -n "$2"
+then
+	VERSION="$2"
 else
 	VERSION=`getVersion`
 fi
 
 test -n "$VERSION"
-
-if test -z "$DPKGARCH"
-then
-	DPKGARCH=`dpkg --print-architecture`
-fi
-
-echo packaging for $VERSION on $DPKGARCH
 
 if test -z "$OBJDUMP"
 then
@@ -309,7 +245,28 @@ do
 			mkdir -p "filesets/HP/$FILESET/data"
 
 			cdesktopenv-code/cde/admin/IntegTools/dbTools/installCDE -s cdesktopenv-code/cde -destdir "filesets/HP/$FILESET/data" -f "$FILESET" -DontRunScripts
+
+			MISSING=false
+
+			if grep missing installCDE*.log 
+			then
+				MISSING=true
+			fi
+
 			rm -rf installCDE*.log "/tmp/$FILESET.good" "/tmp/$FILESET.err" "/tmp/$FILESET.missing" "/tmp/$FILESET.lst"
+
+			if $MISSING
+			then
+				case "$FILESET" in
+					CDE-HELP-DE | CDE-HELP-ES | CDE-HELP-FR | CDE-HELP-IT )
+						;;
+					CDE-INFOLIB-DE | CDE-INFOLIB-ES | CDE-INFOLIB-FR | CDE-INFOLIB-IT )
+						;;
+					* )
+						false
+						;;
+				esac
+			fi
 			;;
 	esac
 done
@@ -438,16 +395,223 @@ mkdir -p filesets/HP/CDE-RUN/data/etc/dt/config/Xsession.d
 mkdir -p filesets/HP/CDE-RUN/data/var/dt/appconfig/appmanager
 mkdir -p filesets/HP/CDE-RUN/data/var/dt/tmp
 
-mkdir -p filesets/HP/dtlogin-service/data
+mkdir data
 
-(
+echo Setup package fileset from HP filesets
+
+for d in filesets/HP/CDE-*
+do
 	set -e
-	cd filesets/HP/dtlogin-service/data
-	mkdir -p etc/systemd/system lib/systemd/system etc/X11
-	ln -s /lib/systemd/system/graphical.target etc/systemd/system/default.target
-	ln -s /lib/systemd/system/dtlogin.service etc/systemd/system/display-manager.service
-	echo /usr/dt/bin/dtlogin > etc/X11/default-display-manager	
-	cat > lib/systemd/system/dtlogin.service  << EOF
+	(
+		set -e
+		cd "$d/data"
+		tar cf - .
+	) | (
+		set -e
+		cd data
+		tar xf -
+	)
+done
+
+du -sk data
+
+find data/etc data/var | xargs ls -ld
+
+ID=`osRelease ID`
+VERSION_ID=`osRelease VERSION_ID`
+RELEASE="1.$ID.$VERSION_ID"
+
+if dpkg --print-architecture
+then
+	DPKGARCH=`dpkg --print-architecture`
+	PATHLIST="`libconf` data/usr/dt/lib"
+	SIZE=`du -sk data`
+	SIZE=`first $SIZE`
+	PKGLIST="rpcbind tcl ksh x11-xserver-utils xfonts-100dpi xfonts-100dpi-transcoded xfonts-75dpi xfonts-75dpi-transcoded"
+	LIBLIST=
+	DEPENDS=
+
+	if test -x data/usr/dt
+	then
+		for d in `find data/usr/dt -type f`
+		do
+			if $OBJDUMP -p "$d" 2>/dev/null >/dev/null
+			then
+				for e in `get_needed "$d"`
+				do
+					for f in `findlib "$e"`
+					do
+						if not_member "$f" $LIBLIST
+						then
+							LIBLIST="$LIBLIST $f"
+						fi
+					done
+				done
+			fi
+		done
+	fi
+
+	for d in $LIBLIST
+	do
+		case "$d" in
+			data/usr/dt/lib/* )
+				;;
+			* )
+				if dpkg -S "$d" >/dev/null
+				then
+					DEPPKG=`dpkg -S "$d"`
+					DEPPKG=`echo "$DEPPKG" | sed "y/:/ /"`
+					DEPPKG=`first $DEPPKG`
+					if not_member "$DEPPKG" $PKGLIST
+					then
+						PKGLIST="$PKGLIST $DEPPKG"
+					fi
+				fi
+				;;
+		esac
+	done
+
+	for d in $PKGLIST
+	do
+		if test -z "$DEPENDS"
+		then
+			DEPENDS="$d"
+		else
+			DEPENDS="$DEPENDS, $d"
+		fi
+	done
+
+	mkdir control
+
+	cat > control/control <<EOF
+Package: cdesktopenv
+Version: $VERSION-$RELEASE
+Architecture: $DPKGARCH
+Depends: $DEPENDS
+Provides: dtlogin
+Section: x11
+Priority: optional
+Homepage: https://sourceforge.net/projects/cdesktopenv/
+Installed-Size: $SIZE
+Maintainer: rhubarb-geek-nz@users.sourceforge.net
+Description: CDE - Common Desktop Environment
+EOF
+
+	while read N M
+	do
+		set -e
+		(
+			set -e
+			cd "$N"
+			tar --owner=0 --group=0 --xz --create --file - $M
+		) > "$N".tar.xz
+		ls -ld "$N".tar.xz
+	done << EOF
+data usr/dt var/dt etc/dt
+control control
+EOF
+
+	echo 2.0 > debian-binary
+
+	ar r cdesktopenv_"$VERSION-$RELEASE"_"$DPKGARCH".deb debian-binary control.tar.* data.tar.*
+fi
+
+if rpmbuild --version
+then
+	cat > rpm.spec <<EOF
+Summary: CDE - Common Desktop Environment
+Name: cdesktopenv
+Version: $VERSION
+Release: $RELEASE
+Provides: dtlogin
+License: LGPLv2+
+Group: User Interface/X
+URL: https://sourceforge.net/projects/cdesktopenv/
+Prefix: /
+
+%description
+CDE - The Common Desktop Environment is X Windows desktop 
+environment that was commonly used on commercial UNIX variants 
+such as Sun Solaris, HP-UX and IBM AIX. Developed between 1993 
+and 1999, it has now been released under an Open Source 
+licence by The Open Group.
+
+%files
+%defattr(-,root,root)
+/var/dt
+/etc/dt
+/usr/dt
+
+%clean
+EOF
+
+	PWD=`pwd`
+	rpmbuild --buildroot "$PWD/data" --define "_rpmdir $PWD/rpms" -bb "$PWD/rpm.spec"
+fi
+
+rm -rf data data.tar.* control control.tar.*
+
+VERSION=1.0
+
+if rpmbuild --version
+then
+	mkdir data
+	mkdir -p data/lib/systemd/system
+	cat > data/lib/systemd/system/dtlogin.service <<EOF
+[Unit]
+Description=Common Desktop Environment Login Manager
+Documentation=man:dtlogin(1)
+Conflicts=getty@tty1.service
+Requires=rpcbind.service
+After=getty@tty1.service systemd-user-sessions.service plymouth-quit.service
+
+[Service]
+ExecStart=/usr/dt/bin/dtlogin -nodaemon
+
+[Install]
+Alias=display-manager.service
+EOF
+
+	cat > rpm.spec << EOF
+Summary: Common Desktop Environment Login Manager
+Name: dtlogin-service
+Version: $VERSION
+Release: $RELEASE
+Requires: dtlogin
+BuildArch: noarch
+License: LGPLv2+
+Group: User Interface/X
+URL: https://sourceforge.net/p/cdesktopenv/wiki/CentOSBuild/
+Prefix: /lib/systemd/system
+
+%description
+CDE - The Common Desktop Environment is X Windows desktop 
+environment that was commonly used on commercial UNIX variants 
+such as Sun Solaris, HP-UX and IBM AIX. Developed between 1993 
+and 1999, it has now been released under an Open Source 
+licence by The Open Group.
+
+%files
+%defattr(-,root,root)
+/lib/systemd/system/dtlogin.service
+
+%clean
+EOF
+
+	PWD=`pwd`
+	rpmbuild --buildroot "$PWD/data" --define "_rpmdir $PWD/rpms" -bb "$PWD/rpm.spec"
+fi
+
+rm -rf data control
+
+if dpkg --print-architecture
+then
+	mkdir data control
+	mkdir -p data/etc/X11 data/etc/systemd/system data/lib/systemd/system
+
+	echo /usr/dt/bin/dtlogin > data/etc/X11/default-display-manager
+
+	cat > data/lib/systemd/system/dtlogin.service << EOF
 [Unit]
 Description=CDE Login Manager
 Requires=rpcbind.service
@@ -456,323 +620,54 @@ After=systemd-user-sessions.service
 [Service]
 ExecStart=/usr/dt/bin/dtlogin -nodaemon
 EOF
-)
 
-echo Setup IBM filesets from HP filesets
+	ln -svf /lib/systemd/system/dtlogin.service data/etc/systemd/system/display-manager.service
 
-mkdir filesets/IBM
+	ln -svf /lib/systemd/system/graphical.target data/etc/systemd/system/default.target
 
-while read N M
-do
-	set -e
-	echo $N
-	mkdir filesets/IBM/$N
+	SIZE=`du -sk data`
+	SIZE=`first $SIZE`
 
-	for d in $M
-	do
-		(
-			set -e
-			cd filesets/HP/$d
-			tar cf - data
-		) | (
-			set -e
-			cd filesets/IBM/$N
-			tar xf - 
-		)
-	done
-done <<EOF
-X11.Dt.rte CDE-MAN CDE-MIN CDE-RUN CDE-C
-X11.Dt.lib CDE-SHLIBS
-X11.Dt.adt CDE-INC CDE-DEMOS CDE-HELP-PRG CDE-MAN-DEV
-X11.Dt.bitmaps CDE-ICONS
-X11.Dt.ToolTalk CDE-TT
-X11.Dt.helprun CDE-HELP-RUN CDE-HELP-C
-X11.Dt.helpmin CDE-MSG-C CDE-FONTS
-X11.Dt.helpinfo CDE-INFOLIB-C CDE-INFO
-X11.Dt.helpinfo.de_DE CDE-HELP-DE
-X11.Dt.helpinfo.es_ES CDE-HELP-ES
-X11.Dt.helpinfo.fr_FR CDE-HELP-FR
-X11.Dt.helpinfo.it_IT CDE-HELP-IT
-X11.Dt.helpmin.de_DE CDE-MSG-DE CDE-DE
-X11.Dt.helpmin.es_ES CDE-MSG-ES CDE-ES
-X11.Dt.helpmin.fr_FR CDE-MSG-FR CDE-FR
-X11.Dt.helpmin.it_IT CDE-MSG-IT CDE-IT
-dtlogin-service dtlogin-service
-EOF
-
-mkdir -p filesets/HP/CDE-DESKTOP/data  filesets/IBM/X11.Dt/data
-
-echo duplicate check confirm
-
-for d in filesets/*
-do
-	set -e
-	(
-		set -e 
-		for e in $d/*/data
-		do
-			(
-				set -e
-				cd $e
-				find . -type f 
-			)
-		done
-	) | while read N
-	do
-		set -e
-		COUNT=`ls -ld $d/*/data/$N | wc -l`
-		if test "$COUNT" -ne "1"
-		then
-			ls -ld $d/*/data/$N
-		fi
-	done
-done
-
-echo duplicate check complete
-
-(
-	set -e
-	for d in filesets/*
-	do
-		(
-			set -e
-			cd $d
-			du -sk * | while read A B C
-			do
-				echo "$A" > "$B/size"
-				echo "$B" | sed "s/de_DE/de/" | sed "s/es_ES/es/" | sed "s/fr_FR/fr/" | sed "s/it_IT/it/" | tr '[:upper:]' '[:lower:]' | sed "y/\./-/" | sed "y/_/-/" > "$B/name"
-			done
-		)
-	done
-)
-
-# use filesets/* to build both filesets/HP and filesets/IBM
-
-for fileset in filesets/IBM
-do
-	set -e
-	PATHLIST="`libconf` $fileset/CDE-SHLIBS/data/usr/dt/lib $fileset/X11.Dt.lib/data/usr/dt/lib"
-
-	for PKGROOT in $fileset/*
-	do
-		PROVIDES=
-		LIBLIST=
-		PKGVER="$VERSION"
-		PKGLIST=
-		PKGNAME=`cat $PKGROOT/name`
-		SIZE=`cat $PKGROOT/size`
-		CDENAME=`basename $PKGROOT`
-
-		if test -x $PKGROOT/data/usr/dt
-		then
-			for d in `find $PKGROOT/data/usr/dt -type f`
-			do
-				if $OBJDUMP -p "$d" 2>/dev/null >/dev/null
-				then
-					for e in `get_needed "$d"`
-					do
-						for f in `findlib "$e"`
-						do
-							if not_member "$f" $LIBLIST
-							then
-								LIBLIST="$LIBLIST $f"
-							fi
-						done
-					done
-				fi
-			done
-		fi
-
-		for d in $LIBLIST
-		do
-			case "$d" in
-				$fileset/CDE-SHLIBS/data/usr/dt/lib/* )
-					DEPPKG=cde-shlibs
-					if test "$PKGNAME" != "$DEPPKG"
-					then
-						if not_member "$DEPPKG" $PKGLIST
-						then
-							PKGLIST="$PKGLIST $DEPPKG"
-						fi
-					fi
-					;;
-				$fileset/X11.Dt.lib/data/usr/dt/lib/* )
-					DEPPKG=x11-dt-lib
-					if test "$PKGNAME" != "$DEPPKG"
-					then
-						if not_member "$DEPPKG" $PKGLIST
-						then
-							PKGLIST="$PKGLIST $DEPPKG"
-						fi
-					fi
-					;;
-				* )
-					if dpkg -S "$d" >/dev/null
-					then
-						DEPPKG=`dpkg -S "$d"`
-						DEPPKG=`echo "$DEPPKG" | sed "y/:/ /"`
-						DEPPKG=`first $DEPPKG`
-						if not_member "$DEPPKG" $PKGLIST
-						then
-							PKGLIST="$PKGLIST $DEPPKG"
-						fi
-					fi
-					;;
-			esac
-		done
-
-		if test -x $PKGROOT/data/usr/dt/bin/dtlogin
-		then
-			PROVIDES=dtlogin
-
-			for d in rpcbind tcl ksh x11-xserver-utils xfonts-100dpi xfonts-100dpi-transcoded xfonts-75dpi xfonts-75dpi-transcoded
-			do
-				if not_member "$d" $PKGLIST
-				then
-					PKGLIST="$PKGLIST $d"
-				fi
-			done
-		fi
-
-		if test -d $PKGROOT/data/usr/dt
-		then
-			PACKARCH=$DPKGARCH
-		else
-			PACKARCH=all
-
-			if test -d $PKGROOT/data/etc/X11
-			then
-				PKGVER=1.0
-				for x in rpcbind dtlogin xserver-xorg-input-libinput xserver-xorg-video-fbdev
-				do
-					if not_member "$x" $PKGLIST
-					then
-						PKGLIST="$PKGLIST $x"
-					fi						
-				done
-			else
-				for x in `cat $fileset/*/name`
-				do
-					if not_member "$x" $PKGLIST dtlogin-service $PKGNAME
-					then
-						PKGLIST="$PKGLIST $x"
-					fi						
-				done
-			fi
-		fi
-
-		DEPENDS=
-
-		for d in $PKGLIST
-		do
-			if test -z "$DEPENDS"
-			then
-				DEPENDS="$d"
-			else
-				DEPENDS="$DEPENDS, $d"
-			fi
-		done
-
-		mkdir $PKGROOT/control
-
-		DESC=`description $CDENAME`
-	
-		if test -z "$DESC"
-		then
-			DESC="Common Desktop Environment"
-		fi
-
-		(
-			cat  <<EOF
-Package: $PKGNAME
-Version: $PKGVER
-Architecture: $PACKARCH
-Maintainer: rhubarb-geek-nz@users.sourceforge.net
-EOF
-
-			if test -n "$DEPENDS"
-			then
-				cat <<EOF
-Depends: $DEPENDS
-EOF
-			fi
-
-			if test -n "$PROVIDES"
-			then
-				cat <<EOF
-Provides: $PROVIDES
-EOF
-			fi
-
-			cat <<EOF
+	cat > control/control << EOF
+Package: dtlogin-service
+Version: $VERSION-$RELEASE
+Architecture: all
+Depends: dtlogin, rpcbind, xserver-xorg-input-libinput, xserver-xorg-video-fbdev
 Section: x11
 Priority: optional
-Homepage: https://sourceforge.net/projects/cdesktopenv/
+Homepage: https://sourceforge.net/p/cdesktopenv/wiki/CDE%20on%20the%20Raspberry%20Pi/
 Installed-Size: $SIZE
-Description: $DESC
-EOF
-		) > $PKGROOT/control/control
-
-	
-		case "$PKGNAME" in
-			cde-run | x11-dt-rte )
-				cat >$PKGROOT/control/postinst <<EOF
-#!/bin/sh -e
-mkdir -p /var/spool/calendar
+Maintainer: rhubarb-geek-nz@users.sourceforge.net
+Description: CDE Login Manager
 EOF
 
-				cat >$PKGROOT/control/postrm <<EOF
-#!/bin/sh -e
-case "\$1" in
-	remove | purge )
-		rm -rf /var/dt/*
-		;;
-	* )
-		;;
-esac
-EOF
-				chmod +x $PKGROOT/control/postinst $PKGROOT/control/postrm
-				;;
-			* )
-				;;
-		esac
-
+	while read N M
+	do
+		set -e
 		(
 			set -e
-			cd $PKGROOT
-			echo "2.0" >debian-binary
+			cd "$N"
+			tar --owner=0 --group=0 --xz --create --file - $M
+		) > "$N".tar.xz
+		ls -ld "$N".tar.xz
+	done << EOF
+data etc/systemd/system/default.target etc/systemd/system/display-manager.service etc/X11/default-display-manager lib/systemd/system/dtlogin.service
+control control
+EOF
 
-			for e in control data
-			do
-				(
-					set -e
-					cd $e
-					tar --owner=0 --group=0 --create --xz --file ../$e.tar.xz .
-				)
-			done
+	echo 2.0 > debian-binary
 
-			ar r "$PKGNAME"_"$PKGVER"_"$PACKARCH".deb debian-binary control.tar.* data.tar.*
-		)
+	ar r dtlogin-service_"$VERSION-$RELEASE"_all.deb debian-binary control.tar.* data.tar.*
+fi
+
+if test -d rpms
+then
+	find rpms -type f -name "*.rpm" | while read N
+	do
+		mv "$N" .
+		basename "$N"
 	done
-
-	(
-		BASE=`basename $fileset`
-		case "$BASE" in
-			IBM )
-				BASE=x11-dt
-				;;
-			HP )
-				BASE=cde-desktop
-				;;
-			* )
-				;;
-		esac
-		cd $fileset
-		mv */*.deb .
-		tar --owner=0 --group=0 --create --file ../../"$BASE"_"$VERSION"_"$DPKGARCH".deb.tar *.deb 
-		rm *.deb
-	)
-done
+fi
 
 date
 echo Build Complete.
