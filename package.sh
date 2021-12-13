@@ -111,10 +111,7 @@ cleanup()
 	done
 }
 
-if test -n "$1"
-then
-	CHECKOUT_VERSION="$1"
-fi
+CHECKOUT_VERSION=2.4.0
 
 cleanup
 
@@ -123,33 +120,9 @@ trap cleanup 0
 if test ! -d cdesktopenv-code
 then
 
-	if test -n "$CHECKOUT_VERSION"
-	then
-		GIT_EXTRA_ARGS="--branch $CHECKOUT_VERSION"
-	else
-		GIT_EXTRA_ARGS=
-	fi
+	GIT_EXTRA_ARGS="--branch $CHECKOUT_VERSION"
 
-	if git clone --recursive $GIT_EXTRA_ARGS --single-branch https://git.code.sf.net/p/cdesktopenv/code cdesktopenv-code
-	then
-		echo git clone ok
-	else
-		rm -rf cdesktopenv-code
-
-		test -n "$CHECKOUT_VERSION"
-
-		git clone --recursive https://git.code.sf.net/p/cdesktopenv/code cdesktopenv-code
-
-		(
-			set -e
-
-			cd cdesktopenv-code
-
-			git checkout --recurse-submodules "$CHECKOUT_VERSION"
-		)
-
-		CHECKOUT_VERSION=
-	fi
+	git clone --recursive $GIT_EXTRA_ARGS --single-branch https://git.code.sf.net/p/cdesktopenv/code cdesktopenv-code
 
 	(
 		set -e
