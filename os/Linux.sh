@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: Linux.sh 97 2021-12-12 06:51:55Z rhubarb-geek-nz $
+# $Id: Linux.sh 108 2021-12-14 23:47:54Z rhubarb-geek-nz $
 #
 
 osRelease()
@@ -158,7 +158,7 @@ SVNREV="$2"
 MAKERPM=false
 MAKEDEB=false
 MADEPKG=false
-MAKESUDO=false
+MAKESLACK=false
 MAILAPPS="usr/dt/bin/dtmail usr/dt/bin/dtmailpr"
 ROOTAPPS="usr/dt/bin/dtappgather"
 
@@ -174,8 +174,7 @@ do
 			MAKERPM=true
 			;;
 		slackware )
-			MAKESUDO=true
-			MAKESUDOID="$d"
+			MAKESLACK=true
 			;;
 		* )
 			;;
@@ -191,7 +190,7 @@ do
 		break
 	fi
 
-	if $MAKESUDO
+	if $MAKESLACK
 	then
 		break
 	fi
@@ -455,9 +454,87 @@ EOF
 	MADEPKG=true
 fi
 
-if $MAKESUDO
+if $MAKESLACK
 then
-	sudo "$DIRNAME/$MAKESUDOID.sh" "$VERSION" "$SVNREV" "$(id -u):$(id -g)"
+	OSID=slack
+	OSVER=$(. /etc/os-release ; echo $VERSION_ID)
+	PKGARCH=$(uname -m)
+	PKGNAME=cdesktopenv
+
+	case "$PKGARCH" in
+		aarch64 | x86_64 )
+			;;
+		arm* )
+			PKGARCH=arm
+			;;
+		* )
+			PKGARCH=$(gcc -Q --help=target | grep "\-march=" | while read A B C; do echo $B; break; done)
+			;;
+	esac
+
+	DESTPKG=$PKGNAME-"$VERSION"-"$PKGARCH"-"$SVNREV"_"$OSID$OSVER".txz
+
+	mkdir data/install data/mailbox data/root
+
+	cat > data/install/slack-desc << EOF
+        |-----handy-ruler------------------------------------------------------|
+$PKGNAME: CDE - Common Desktop Environment
+$PKGNAME:
+$PKGNAME: The Common Desktop Environment was created by a collaboration of Sun,
+$PKGNAME: HP, IBM, DEC, SCO, Fujitsu and Hitachi. Used on a selection of
+$PKGNAME: commercial UNIXs, it is now available as open-source software for the
+$PKGNAME: first time.
+$PKGNAME:
+$PKGNAME:
+$PKGNAME:
+$PKGNAME:
+$PKGNAME:
+EOF
+
+	find data -type f | xargs chmod -w
+
+	(
+		set -e
+		cd data
+
+		chmod 4555 $ROOTAPPS
+		chmod 2555 $MAILAPPS
+
+		mv $MAILAPPS mailbox
+
+		(
+			find */dt -type l | while read N
+			do
+				D=$(dirname $N)
+				B=$(basename $N)
+				L=$(readlink $N)
+	
+				echo "( cd $D ; rm -rf $B )"
+				echo "( cd $D ; ln -sf $L $B )"
+
+				rm "$N"
+			done 
+		) > install/doinst.sh
+
+		chmod +x install/doinst.sh
+
+		tar --owner=0 --group=0 --create --file data.tar */dt
+		tar --owner=0 --group=0 --create --file install.tar install
+	
+		mv mailbox/* usr/dt/bin
+		tar --owner=0 --group=mail --create --file mail.tar $MAILAPPS
+
+		(
+			cd root
+			tar  --owner=0 --group=0 --create --file ../root.tar .
+		)
+
+		tar --concatenate --file root.tar data.tar
+		tar --concatenate --file root.tar mail.tar
+		tar --concatenate --file root.tar install.tar
+
+		xz < root.tar > "../$DESTPKG"
+	)
 
 	MADEPKG=true
 fi
