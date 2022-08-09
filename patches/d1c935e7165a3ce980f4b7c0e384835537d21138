@@ -1,0 +1,10 @@
+diff --git a/cde/programs/fontaliases/Makefile.am b/cde/programs/fontaliases/Makefile.am
+index 29abc6d15..6a51e33b9 100644
+--- a/cde/programs/fontaliases/Makefile.am
++++ b/cde/programs/fontaliases/Makefile.am
+@@ -33,4 +33,4 @@ fonts.dir: dtinfo.pcf.gz
+ 
+ install-data-hook:
+ 	$(MKDIR_P) $(DESTDIR)$(fontaliasesconfdir)
+-	$(CP) $(fontaliasesdatadir)/$(FONTS_ALIAS) $(DESTDIR)$(fontaliasesconfdir)/fonts.alias
++	$(CP) $(DESTDIR)$(fontaliasesdatadir)/$(FONTS_ALIAS) $(DESTDIR)$(fontaliasesconfdir)/fonts.alias

@@ -16,7 +16,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: Linux.cf 129 2021-12-31 05:33:35Z rhubarb-geek-nz $
+# $Id: Linux.cf 174 2022-07-29 21:02:12Z rhubarb-geek-nz $
 #
 
 VALIDATED=false
@@ -38,7 +38,7 @@ for d in $( . /etc/os-release ; echo $ID $ID_LIKE )
 do
 	case "$d" in
 		debian )
-			dpkg -l autoconf automake bc bison build-essential flex git ksh libfreetype6-dev libjpeg-dev libmotif-dev libpam0g-dev libssl-dev libtirpc-dev libtool libutempter-dev libx11-dev libxaw7-dev libxft-dev libxinerama-dev libxmu-dev libxpm-dev libxss-dev libxt-dev m4 ncompress patch rpcbind tcl-dev x11-xserver-utils x11proto-fonts-dev xbitmaps xfonts-100dpi xfonts-100dpi-transcoded < /dev/null
+			dpkg -l autoconf automake bc bison build-essential flex git ksh libfreetype6-dev libjpeg-dev libmotif-dev libpam0g-dev libssl-dev libtirpc-dev libtool libutempter-dev libx11-dev libxaw7-dev libxft-dev libxinerama-dev libxmu-dev libxpm-dev libxss-dev libxt-dev m4 ncompress opensp patch rpcbind tcl-dev x11-xserver-utils x11proto-fonts-dev xbitmaps xfonts-100dpi xfonts-100dpi-transcoded < /dev/null
 			VALIDATED=true
 			;;
 		rhel | centos | fedora | rocky | almalinux | opensuse | suse )
@@ -67,7 +67,7 @@ do
 					;;
 			esac
 
-			rpm -q $(sorted autoconf automake bc binutils bison byacc flex gcc gcc-c++ git ksh libXaw-devel libXdmcp-devel libXft-devel libXinerama-devel libXmu-devel libffi-devel libtirpc-devel libtool make motif motif-devel ncompress pam-devel rpcbind rpm-build tcl-devel which $EXTRA_DEPS)
+			rpm -q $(sorted autoconf automake bc binutils bison byacc flex gcc gcc-c++ git ksh libXaw-devel libXdmcp-devel libXft-devel libXinerama-devel libXmu-devel libffi-devel libtirpc-devel libtool make motif motif-devel ncompress opensp pam-devel rpcbind rpm-build tcl-devel which $EXTRA_DEPS)
 			VALIDATED=true
 			;;
 		gentoo )
