@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: package.sh 175 2022-08-01 17:58:31Z rhubarb-geek-nz $
+# $Id: package.sh 176 2022-08-08 00:29:14Z rhubarb-geek-nz $
 #
 
 if test 0 -eq $(id -u)
@@ -86,10 +86,7 @@ cleanup()
 	done
 }
 
-if test -n "$1"
-then
-	CHECKOUT_VERSION="$1"
-fi
+CHECKOUT_VERSION="2.5.0"
 
 cleanup
 
@@ -115,33 +112,9 @@ fi
 if test ! -d cdesktopenv-code
 then
 
-	if test -n "$CHECKOUT_VERSION"
-	then
-		GIT_EXTRA_ARGS="--branch $CHECKOUT_VERSION"
-	else
-		GIT_EXTRA_ARGS=
-	fi
+	GIT_EXTRA_ARGS="--branch $CHECKOUT_VERSION"
 
-	if git clone --recursive $GIT_EXTRA_ARGS --single-branch https://git.code.sf.net/p/cdesktopenv/code cdesktopenv-code
-	then
-		echo git clone ok
-	else
-		rm -rf cdesktopenv-code
-
-		test -n "$CHECKOUT_VERSION"
-
-		git clone --recursive https://git.code.sf.net/p/cdesktopenv/code cdesktopenv-code
-
-		(
-			set -e
-
-			cd cdesktopenv-code
-
-			git checkout --recurse-submodules "$CHECKOUT_VERSION"
-		)
-
-		CHECKOUT_VERSION=
-	fi
+	git clone --recursive $GIT_EXTRA_ARGS --single-branch https://git.code.sf.net/p/cdesktopenv/code cdesktopenv-code
 
 	(
 		set -e
@@ -227,11 +200,6 @@ then
 	VERSION="$2"
 else
 	VERSION=$(getVersion)
-
-	if test -z "$CHECKOUT_VERSION"
-	then
-		VERSION="$VERSION.$GITHASH"
-	fi
 fi
 
 SVNREV=0
