@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: package.sh 129 2021-12-31 05:33:35Z rhubarb-geek-nz $
+# $Id: package.sh 175 2022-08-01 17:58:31Z rhubarb-geek-nz $
 #
 
 if test 0 -eq $(id -u)
@@ -170,7 +170,7 @@ then
 
 			./autogen.sh
 
-			./configure --prefix=/usr/dt $CONFIGURATION_PARAMS MAKE="$MAKE" CFLAGS="-m64 $CFLAGS" CXXFLAGS="-m64 $CXXFLAGS"
+			./configure --prefix=/usr/dt $CONFIGURATION_PARAMS MAKE="$MAKE" CFLAGS="-m64 $CFLAGS" CXXFLAGS="-m64 $CXXFLAGS" --enable-spanish --enable-italian --enable-french --enable-german
 
 			(
 				set -e
@@ -211,7 +211,7 @@ then
 
 		./autogen.sh
 
-		./configure --prefix=/usr/dt $CONFIGURATION_PARAMS MAKE="$MAKE" CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS"
+		./configure --prefix=/usr/dt $CONFIGURATION_PARAMS MAKE="$MAKE" CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" --enable-spanish --enable-italian --enable-french --enable-german
 
 		MAKE="$MAKE" "$MAKE"
 	)
