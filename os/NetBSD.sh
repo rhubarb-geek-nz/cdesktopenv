@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: NetBSD.sh 98 2021-12-12 12:37:08Z rhubarb-geek-nz $
+# $Id: NetBSD.sh 129 2021-12-31 05:33:35Z rhubarb-geek-nz $
 #
 
 VERSION="$1"
@@ -33,6 +33,8 @@ then
 	fi
 fi
 
+. os/fakeroot.sh
+
 mkdir meta
 
 PKGNAME=cdesktopenv-$VERSION
@@ -47,11 +49,9 @@ PKGDEP="ast-ksh freetype2 font-adobe-75dpi font-adobe-100dpi fontconfig motif tc
     echo PKGTOOLS_VERSION=$(pkg_info -V)
 ) > meta/BUILD_INFO
 
-find data -type f | xargs chmod -w
+os/elf.sh
 
-chmod 2555 data/usr/dt/bin/dtmail
-chmod 2555 data/usr/dt/bin/dtmailpr
-chmod 4555 data/usr/dt/bin/dtappgather
+find data -type f | xargs chmod -w
 
 (
 	set -e
@@ -61,20 +61,34 @@ chmod 4555 data/usr/dt/bin/dtappgather
 	do
 		echo "@pkgdir $N"
 	done
+	for d in etc/pam.d
+	do
+		if test -d "$d"
+		then
+			find "$d" -type f
+		fi
+	done
 	find */dt -type f | (
 		CURGRP=
-		GRP=
+		CURMOD=
+		DESTDIR=$(pwd)
 
 		while read N
 		do
-			case "$N" in
-				usr/dt/bin/dtmail | usr/dt/bin/dtmailpr )
-					GRP="mail"
-					;;
-				* )
-					GRP=
-					;;
-			esac
+			GRP=$(fakeroot_chgrp "$N")
+			MOD=
+
+			if test -f "$N" && test -x "$N"
+			then
+				if test -g "$N"
+				then
+					MOD=2555
+				fi
+				if test -u "$N"
+				then
+					MOD=4555
+				fi
+			fi
 
 			if test "$CURGRP" != "$GRP"
 			then
@@ -84,6 +98,17 @@ chmod 4555 data/usr/dt/bin/dtappgather
 					echo "@group $CURGRP"
 				else
 					echo "@group"
+				fi
+			fi
+
+			if test "$CURMOD" != "$MOD"
+			then
+				CURMOD="$MOD"
+				if test -n "$CURMOD"
+				then
+					echo "@mode $CURMOD"
+				else
+					echo "@mode"
 				fi
 			fi
 
@@ -99,4 +124,16 @@ cat > meta/DESC << EOF
 The Common Desktop Environment was created by a collaboration of Sun, HP, IBM, DEC, SCO, Fujitsu and Hitachi. Used on a selection of commercial UNIXs, it is now available as open-source software for the first time.
 EOF
 
+cp meta/* log/
+
 pkg_create -v -B meta/BUILD_INFO -P "$PKGDEP" -c meta/COMMENT -g wheel -u root -d meta/DESC -I / -f meta/CONTENTS -p data -F xz "$PKGNAME.tgz"
+
+tar tvfJ "$PKGNAME.tgz" | grep "+CONTENTS
++COMMENT
++DESC
++BUILD_INFO
+etc/pam.d/dt
+bin/dtappgather
+bin/dtmail
+bin/dtsession
+bin/dtterm"

@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: Linux.sh 108 2021-12-14 23:47:54Z rhubarb-geek-nz $
+# $Id: Linux.sh 129 2021-12-31 05:33:35Z rhubarb-geek-nz $
 #
 
 osRelease()
@@ -111,18 +111,43 @@ findlib()
 	esac
 }
 
+isELF()
+{
+	test " 177 105 114 106" = "$(od -b -N4 -An < $1)"
+}
+
 get_needed()
 {
-	$OBJDUMP -p "$1" 2>/dev/null | while read A B C
-	do
-		case "$A" in
-		NEEDED )
-			echo "$B"
-			;;
-		* )
-			;;
-		esac
-	done
+	if isELF "$1"
+	then
+		"$OBJDUMP" -p "$1" 2>/dev/null | while read A B C
+		do
+			case "$A" in
+			NEEDED )
+				echo "$B"
+				;;
+			* )
+				;;
+			esac
+		done
+	fi
+}
+
+get_soname()
+{
+	if isELF "$1"
+	then
+		"$OBJDUMP" -p "$1" 2>/dev/null | while read A B C
+		do
+			case "$A" in
+			SONAME )
+				echo "$B"
+				;;
+			* )
+				;;
+			esac
+		done
+	fi
 }
 
 osLike()
@@ -137,7 +162,7 @@ osLike()
 
 cleanup()
 {
-	for d in rpms rpm.spec
+	for d in rpms rpm.spec data-dev
 	do
 		if test -w "$d"
 		then
@@ -159,8 +184,7 @@ MAKERPM=false
 MAKEDEB=false
 MADEPKG=false
 MAKESLACK=false
-MAILAPPS="usr/dt/bin/dtmail usr/dt/bin/dtmailpr"
-ROOTAPPS="usr/dt/bin/dtappgather"
+MAKETAR=false
 
 SVNREV=$(echo 1+$SVNREV | bc)
 
@@ -196,6 +220,13 @@ do
 	fi
 done
 
+if $MAKEDEB || $MAKERPM || $MAKESLACK
+then
+	:
+else
+	MAKETAR=true
+fi
+
 cleanup
 
 trap cleanup 0
@@ -207,55 +238,198 @@ fi
 
 test -d data
 
-find data -type f | while read N
-do
-	if test -x "$N"
-	then
-		if "$OBJDUMP" -p "$N" >/dev/null 2>&1
-		then
-			strip "$N"
-		fi
-	else
-		BN=$(basename "$N")
-		case "$BN" in
-			lib*.so* )
-				if "$OBJDUMP" -p "$N"
-				then
-					strip "$N"
-				fi
+os/elf.sh
+
+(
+	cd data
+
+	for N in * */*
+	do
+		case "$N" in
+			usr | usr/dt | var | var/dt | etc | etc/dt | etc/pam.d )
 				;;
 			* )
+				echo DELETING "$N"
+				rm -rf "$N"
 				;;
 		esac
+	done
+)
+
+if $MAKEDEB || $MAKERPM
+then
+	if test ! -h data/usr/dt/include && test -d data/usr/dt/include
+	then
+		mkdir -p data-dev/usr/dt/lib
+
+		mv data/usr/dt/include data-dev/usr/dt/include
 	fi
-done
+
+	(
+		cd data
+		find usr/dt/lib -type l -name "lib*.so"
+	) | (
+		while read N
+		do
+			DN=$(dirname "$N")
+			mkdir -p "data-dev/$DN"
+			mv "data/$N" "data-dev/$DN/"
+		done
+	)
+
+	(
+		cd data
+		find usr/dt/lib -type f -name "lib*.a"
+	) | (
+		while read N
+		do
+			DN=$(dirname "$N")
+			mkdir -p "data-dev/$DN"
+			mv "data/$N" "data-dev/$DN/"
+		done
+	)
+
+	(
+		cd data
+		find usr/dt/lib -type f -name "lib*.la"
+	) | (
+		while read N
+		do
+			DN=$(dirname "$N")
+			mkdir -p "data-dev/$DN"
+			mv "data/$N" "data-dev/$DN/"
+		done
+	)
+
+	if test -d data/usr/dt/share/man/man3
+	then
+		mkdir -p data-dev/usr/dt/share/man
+		mv data/usr/dt/share/man/man3 data-dev/usr/dt/share/man
+	fi
+
+	if test -d data/usr/dt/share/examples
+	then
+		mkdir -p data-dev/usr/dt/share
+		mv data/usr/dt/share/examples data-dev/usr/dt/share
+	fi
+
+	if test -h data/usr/dt/examples
+	then
+		mkdir -p data-dev/usr/dt
+		mv data/usr/dt/examples data-dev/usr/dt
+	fi
+
+	if test -d data-dev
+	then
+		find data-dev -type f | xargs chmod -w
+	fi
+fi
+
+find data -type f | xargs chmod -w
+
+SIZE=$(du -sk data)
+SIZE=$(first $SIZE)
+
+. os/fakeroot.sh
+
+if $MAKEDEB || $MAKESLACK || $MAKETAR
+then
+	(
+		cd data
+		mkdir chgrp
+
+		DESTDIR=$(pwd)
+
+		while read A B C
+		do
+			case "$A" in
+				chgrp )
+					echo MUST CHANGE GROUP $B FOR $C
+					for D in $C
+					do
+						BASE=$(echo $D | sed "s!^$DESTDIR/!!")
+						echo NOW $C BECOMES $BASE
+						GRPDIR=$(dirname "$BASE")
+						mkdir -p "chgrp/$B/$GRPDIR"
+						mv "$BASE" "chgrp/$B/$GRPDIR"
+					done
+					;;
+				chown )
+					case "$B" in
+						root | root:root )
+							;;
+						* )
+							echo FAKEROOT LOG $A $B $C
+							false
+							;;
+					esac
+					;;
+				* )
+					echo FAKEROOT LOG $A $B $C
+					false
+					;;
+			esac
+		done < "$FAKEROOT_LOG"
+
+		find chgrp -type f | xargs ls -ld
+
+		DATADIRS=
+
+		for d in */dt
+		do
+			if test -d "$d"
+			then
+				DATADIRS="$DATADIRS $d"
+			fi
+		done
+
+		if test -d etc/pam.d
+		then
+			DATADIRS="$DATADIRS $(find etc/pam.d -type f)"
+			DATADIRS="$DATADIRS $(find etc/pam.d -type l)"
+		fi
+
+		tar --owner=0 --group=0 --create --file data.tar $( ( for d in $DATADIRS; do echo $d; done ) | sort )
+
+		for d in $(ls chgrp)
+		do
+			echo HANDLE GROUP $d
+
+			(
+				set -e
+				cd "chgrp/$d"
+				tar --owner=0 --group=$d --create --file ../../chgrp.tar $(find * -type f)
+			)
+
+			tar --concatenate --file data.tar chgrp.tar
+
+			rm chgrp.tar
+		done
+	)
+fi
 
 ID=$(osRelease ID | sed "y/-/./")
 VERSION_ID=$(osRelease VERSION_ID)
-RELEASE="$SVNREV.$ID.$VERSION_ID"
+RELEASE="$SVNREV"
 
 if $MAKEDEB
 then
-	find data/usr -type f | xargs chmod -w
-
 	dpkg --print-architecture
 	DPKGARCH=$(dpkg --print-architecture)
 	PATHLIST="$(libconf) data/usr/dt/lib"
-	SIZE=$(du -sk data)
-	SIZE=$(first $SIZE)
 	PKGLIST="rpcbind tcl ksh x11-xserver-utils xfonts-100dpi xfonts-100dpi-transcoded xfonts-75dpi xfonts-75dpi-transcoded"
 	LIBLIST=
 	DEPENDS=
 
 	if test -x data/usr/dt
 	then
-		for d in `find data/usr/dt -type f`
+		for d in $(find data/usr/dt -type f -executable)
 		do
-			if $OBJDUMP -p "$d" 2>/dev/null >/dev/null
+			if isELF "$d"
 			then
-				for e in `get_needed "$d"`
+				for e in $(get_needed "$d")
 				do
-					for f in `findlib "$e"`
+					for f in $(findlib "$e")
 					do
 						if not_member "$f" $LIBLIST
 						then
@@ -275,9 +449,9 @@ then
 			* )
 				if dpkg -S "$d" >/dev/null
 				then
-					DEPPKG=`dpkg -S "$d"`
-					DEPPKG=`echo "$DEPPKG" | sed "y/:/ /"`
-					DEPPKG=`first $DEPPKG`
+					DEPPKG=$(dpkg -S "$d")
+					DEPPKG=$(echo "$DEPPKG" | sed "y/:/ /")
+					DEPPKG=$(first $DEPPKG)
 					if not_member "$DEPPKG" $PKGLIST
 					then
 						PKGLIST="$PKGLIST $DEPPKG"
@@ -297,9 +471,19 @@ then
 		fi
 	done
 
-	mkdir -p data/control/DEBIAN
+	mkdir -p data/DEBIAN
 
-	cat > data/control/DEBIAN/control <<EOF
+	if test -z "$MAINTAINER"
+	then
+		if git config user.email > /dev/null
+		then
+			MAINTAINER="$(git config user.email)"
+		else
+			MAINTAINER="$(id -un)@$(hostname)"
+		fi
+	fi
+
+	cat > data/DEBIAN/control <<EOF
 Package: cdesktopenv
 Version: $VERSION-$RELEASE
 Architecture: $DPKGARCH
@@ -309,74 +493,69 @@ Section: x11
 Priority: optional
 Homepage: https://sourceforge.net/projects/cdesktopenv/
 Installed-Size: $SIZE
-Maintainer: rhubarb-geek-nz@users.sourceforge.net
+Maintainer: $MAINTAINER
 Description: CDE - Common Desktop Environment
 EOF
 
 	(
-		set -e
-
 		cd data
 
-		dpkg-deb --build control control.deb
+		tar --owner=0 --group=0 --create --xz --file control.tar.xz -C DEBIAN control
 
-		ar x control.deb
+		xz data.tar
 
-		mv debian-binary control.tar.* ..
+		echo "2.0" > debian-binary
 
-		DATA_TAR=$(ls data.tar.*)
+		ar r cdesktopenv_"$VERSION-$RELEASE"_"$DPKGARCH".deb debian-binary control.tar.xz data.tar.xz
 
-		ls -ld "$DATA_TAR"
-
-		rm -rf data.tar.* control control.deb
-
-		if test -n "$MAILAPPS"
-		then
-			mkdir mailbox
-
-			mv $MAILAPPS mailbox
-		fi
-
-		if test -n "$ROOTAPPS"
-		then
-			chmod 4555 $ROOTAPPS
-		fi
-
-		tar --owner=0 --group=0 --create --file data.tar */dt
-
-		if test -n "$MAILAPPS"
-		then
-			mv mailbox/* usr/dt/bin
-
-			rmdir mailbox
-
-			chmod 2555 $MAILAPPS
-
-			tar --owner=0 --group=mail --create --file mail.tar $MAILAPPS
-
-			tar --catenate --file data.tar mail.tar
-		fi
-
-		case "$DATA_TAR" in
-			data.tar.gz )
-				gzip data.tar
-				;;
-			data.tar.xz )
-				xz data.tar
-				;;
-			data.tar.zst )
-				zstd --rm data.tar
-				;;
-			* )
-				echo unknown format "$DATA_TAR" >&2
-				false
-				;;
-		esac
-
-		mv "$DATA_TAR" ..
+		mv cdesktopenv_"$VERSION-$RELEASE"_"$DPKGARCH".deb ..
 	)
 
-	ar r cdesktopenv_"$VERSION-$RELEASE"_"$DPKGARCH".deb debian-binary control.tar.* data.tar.*
+	dpkg-deb -c cdesktopenv_"$VERSION-$RELEASE"_"$DPKGARCH".deb | grep "etc/pam.d/dt
+bin/dtappgather
+bin/dtmail
+bin/dtsession
+bin/dtterm"
+
+SIZE=$(du -sk data-dev)
+SIZE=$(first $SIZE)
+
+	mkdir data-dev/DEBIAN
+
+	cat > data-dev/DEBIAN/control <<EOF
+Package: cdesktopenv-dev
+Version: $VERSION-$RELEASE
+Architecture: $DPKGARCH
+Depends: cdesktopenv (= $VERSION-$RELEASE), libmotif-dev 
+Section: x11
+Priority: optional
+Homepage: https://sourceforge.net/projects/cdesktopenv/
+Installed-Size: $SIZE
+Maintainer: $MAINTAINER
+Description: CDE - development files
+EOF
+
+	(
+		cd data-dev
+
+		tar --owner=0 --group=0 --create --xz --file control.tar.xz -C DEBIAN control
+		
+		tar --owner=0 --group=0 --create --xz --file data.tar.xz \
+			usr/dt/include \
+			$(find usr/dt -type l) \
+			$(find usr/dt/lib -type f) \
+			usr/dt/share/man/man3 \
+			$(if test -d usr/dt/share/examples; then echo usr/dt/share/examples ; fi )
+
+		echo "2.0" > debian-binary
+
+		ar r cdesktopenv-dev_"$VERSION-$RELEASE"_"$DPKGARCH".deb debian-binary control.tar.xz data.tar.xz
+
+		mv cdesktopenv-dev_"$VERSION-$RELEASE"_"$DPKGARCH".deb ..
+	)
+
+	dpkg-deb -c cdesktopenv-dev_"$VERSION-$RELEASE"_"$DPKGARCH".deb | grep "Dt/Dt.h
+lib/libDtTerm.so"
 
 	MADEPKG=true
 fi
@@ -409,8 +588,27 @@ and 1999, it has now been released under an Open Source
 licence by The Open Group.
 
 %files
-%defattr(-,root,root)
 EOF
+
+		DESTDIR=$(pwd)
+
+		if test -d etc/pam.d
+		then
+			find etc/pam.d | while read N
+			do
+				if test -h "$N"
+				then
+					echo "/$N"
+				else
+					if test -f "$N"
+					then
+						U="root"
+						G="root"
+						echo "%attr(-,$U,$G) /$N"
+					fi
+				fi
+			done
+		fi
 
 		find */dt | while read N
 		do
@@ -420,24 +618,15 @@ EOF
 			else
 				if test -d "$N"
 				then
-					echo "%dir %attr(555,root,root) /$N"
+					echo "%dir %attr(555,-,-) /$N"
 				else
-					case "$N" in
-						usr/dt/bin/dtappgather )
-							echo "%attr(4555,root,root) /$N"
-							;;
-						usr/dt/bin/dtmail | usr/dt/bin/dtmailpr )
-							echo "%attr(2555,root,mail) /$N"
-							;;
-						* )
-							if test -x "$N"
-							then
-								echo "%attr(555,root,root) /$N"
-							else
-								echo "%attr(444,root,root) /$N"
-							fi
-							;;
-					esac
+					U="root"
+					G=$(fakeroot_chgrp $N)
+					if test -z "$G"
+					then
+						G="root"
+					fi
+					echo "%attr(-,$U,$G) /$N"
 				fi
 			fi
 		done
@@ -448,8 +637,65 @@ EOF
 EOF
 	) > rpm.spec
 
+	cp rpm.spec log/rpm.spec
+
 	PWD=$(pwd)
 	rpmbuild --buildroot "$PWD/data" --define "_rpmdir $PWD/rpms" --define "_build_id_links none" -bb "$PWD/rpm.spec"
+
+	(
+		cd data-dev
+
+		cat <<EOF
+Summary: CDE - Common Desktop Environment development
+Name: cdesktopenv-devel
+Version: $VERSION
+Release: $SVNREV
+Requires: cdesktopenv = $VERSION motif-devel 
+License: LGPLv2+
+Group: User Interface/X
+URL: https://sourceforge.net/projects/cdesktopenv/
+Prefix: /
+
+%description
+This is the CDE $VERSION development environment. It includes the
+header files and also static libraries necessary to build CDE applications.
+
+%files
+EOF
+
+		DESTDIR=$(pwd)
+
+		find */dt/include */dt/share/man */dt/share/examples | while read N
+		do
+			if test -d "$N"
+			then
+				echo "%dir %attr(555,-,-) /$N"
+			fi
+		done
+
+		find */dt | while read N
+		do
+			if test -h "$N"
+			then
+				echo "/$N"
+			else
+				if test -f "$N"
+				then
+					echo "%attr(444,root,root) /$N"
+				fi
+			fi
+		done
+
+		cat <<EOF
+
+%clean
+EOF
+	) > rpm.spec
+
+	cp rpm.spec log/rpm.spec.devel
+
+	PWD=$(pwd)
+	rpmbuild --buildroot "$PWD/data-dev" --define "_rpmdir $PWD/rpms" --define "_build_id_links none" -bb "$PWD/rpm.spec"
 
 	MADEPKG=true
 fi
@@ -474,7 +720,7 @@ then
 
 	DESTPKG=$PKGNAME-"$VERSION"-"$PKGARCH"-"$SVNREV"_"$OSID$OSVER".txz
 
-	mkdir data/install data/mailbox data/root
+	mkdir data/install data/root
 
 	cat > data/install/slack-desc << EOF
         |-----handy-ruler------------------------------------------------------|
@@ -491,16 +737,9 @@ $PKGNAME:
 $PKGNAME:
 EOF
 
-	find data -type f | xargs chmod -w
-
 	(
 		set -e
 		cd data
-
-		chmod 4555 $ROOTAPPS
-		chmod 2555 $MAILAPPS
-
-		mv $MAILAPPS mailbox
 
 		(
 			find */dt -type l | while read N
@@ -518,26 +757,56 @@ EOF
 
 		chmod +x install/doinst.sh
 
-		tar --owner=0 --group=0 --create --file data.tar */dt
 		tar --owner=0 --group=0 --create --file install.tar install
 	
-		mv mailbox/* usr/dt/bin
-		tar --owner=0 --group=mail --create --file mail.tar $MAILAPPS
-
 		(
 			cd root
 			tar  --owner=0 --group=0 --create --file ../root.tar .
 		)
 
 		tar --concatenate --file root.tar data.tar
-		tar --concatenate --file root.tar mail.tar
+
+		echo ADD INSTALL
+
 		tar --concatenate --file root.tar install.tar
+
+		echo COMPRESSING
 
 		xz < root.tar > "../$DESTPKG"
 	)
 
+	tar tvfJ "$DESTPKG" | grep "\./
+etc/pam.d/dt
+bin/dtappgather
+bin/dtmail
+bin/dtsession
+bin/dtterm
+install/slack-desc
+install/doinst.sh"
+
 	MADEPKG=true
 fi
+
+if $MAKETAR
+then
+
+	MACHINE=$(uname -m)
+
+	ls -ld data/data.tar
+
+	DESTPKG="cdesktopenv"_"$VERSION-$RELEASE"_"$MACHINE.tar.gz"
+
+	gzip < "data/data.tar" > "$DESTPKG"
+
+	tar tvfz "$DESTPKG" | grep "etc/pam.d/dt
+bin/dtappgather
+bin/dtmail
+bin/dtsession
+bin/dtterm"
+
+	MADEPKG=true
+fi
+
 
 if test -d rpms
 then
@@ -545,22 +814,15 @@ then
 	do
 		mv "$N" .
 		basename "$N"
+
+		rpm -qlvp $(basename "$N") | grep "etc/pam.d/dt
+bin/dtappgather
+bin/dtmail
+bin/dtsession
+bin/dtterm
+include/Dt/Dt.h
+lib/libDtTerm.so"
 	done
-fi
-
-if $MADEPKG
-then
-	:
-else
-	(
-		set -e
-		cd data
-		tar --owner=0 --group=0 --gzip --create --file data.tar.gz */dt
-	)
-
-	mv data/data.tar.gz cdesktopenv_"$VERSION"_"$SVNREV".tar.gz
-
-	MADEPKG=true
 fi
 
 $MADEPKG

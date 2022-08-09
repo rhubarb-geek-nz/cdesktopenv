@@ -1,0 +1,155 @@
+#
+#  Copyright 2021, Roger Brown
+#
+#  This file is part of rhubarb pi.
+#
+#  This program is free software: you can redistribute it and/or modify it
+#  under the terms of the GNU General Public License as published by the
+#  Free Software Foundation, either version 3 of the License, or (at your
+#  option) any later version.
+# 
+#  This program is distributed in the hope that it will be useful, but WITHOUT
+#  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+#  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+#  more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+# $Id: Linux.cf 129 2021-12-31 05:33:35Z rhubarb-geek-nz $
+#
+
+VALIDATED=false
+
+sorted()
+{
+	(
+		for d in "$@"
+		do
+			echo "$d"
+		done
+	) | sort -u
+}
+
+DIST_ID=$( . /etc/os-release ; echo $ID )
+VERSION_ID=$( . /etc/os-release ; echo $VERSION_ID | sed "y/\./ /" | while read A B; do echo $A; break; done )
+
+for d in $( . /etc/os-release ; echo $ID $ID_LIKE )
+do
+	case "$d" in
+		debian )
+			dpkg -l autoconf automake bc bison build-essential flex git ksh libfreetype6-dev libjpeg-dev libmotif-dev libpam0g-dev libssl-dev libtirpc-dev libtool libutempter-dev libx11-dev libxaw7-dev libxft-dev libxinerama-dev libxmu-dev libxpm-dev libxss-dev libxt-dev m4 ncompress patch rpcbind tcl-dev x11-xserver-utils x11proto-fonts-dev xbitmaps xfonts-100dpi xfonts-100dpi-transcoded < /dev/null
+			VALIDATED=true
+			;;
+		rhel | centos | fedora | rocky | almalinux | opensuse | suse )
+			case "$d" in
+				suse | opensuse )
+					EXTRA_DEPS="glibc-locale libXss-devel libjpeg62-devel libopenssl-devel mkfontdir utempter-devel xrdb"
+					;;
+				* )
+					EXTRA_DEPS="libXScrnSaver-devel libjpeg-turbo-devel libutempter-devel openssl-devel xorg-x11-font-utils xorg-x11-xbitmaps"
+					;;
+			esac
+
+			case "$DIST_ID" in
+				rhel | centos | rocky | almalinux )
+					if test "$VERSION_ID" -gt 7
+					then
+						EXTRA_DEPS="$EXTRA_DEPS rpcgen"
+					else
+						EXTRA_DEPS="$EXTRA_DEPS glibc-common"
+					fi
+					;;
+				fedora )
+					EXTRA_DEPS="$EXTRA_DEPS rpcgen"
+					;;
+				* )
+					;;
+			esac
+
+			rpm -q $(sorted autoconf automake bc binutils bison byacc flex gcc gcc-c++ git ksh libXaw-devel libXdmcp-devel libXft-devel libXinerama-devel libXmu-devel libffi-devel libtirpc-devel libtool make motif motif-devel ncompress pam-devel rpcbind rpm-build tcl-devel which $EXTRA_DEPS)
+			VALIDATED=true
+			;;
+		gentoo )
+			MISSING=
+			for d in app-arch/ncompress app-shells/ksh dev-lang/tcl media-fonts/font-bitstream-100dpi media-libs/freetype media-libs/libjpeg-turbo net-libs/rpcsvc-proto net-nds/rpcbind sys-devel/autoconf sys-devel/automake sys-devel/bc sys-devel/bison sys-devel/flex sys-devel/libtool sys-devel/m4 sys-libs/libutempter sys-libs/pam virtual/libcrypt x11-apps/bdftopcf x11-apps/mkfontscale x11-apps/xrdb x11-apps/xset x11-libs/libX11 x11-libs/libXScrnSaver x11-libs/libXaw x11-libs/libXft x11-libs/libXinerama x11-libs/libXmu x11-libs/libXpm x11-libs/libXt x11-libs/motif x11-misc/xbitmaps
+			do
+				if qlist -I "$d"
+				then
+					:
+				else
+					MISSING="$MISSING $d"
+				fi
+			done
+			if test -n "$MISSING"
+			then
+				echo missing $MISSING >&2
+				false
+			fi
+			VALIDATED=true			
+			;;
+		slackware )
+			VALIDATED=true
+			;;
+		arch )
+			echo Use a pacman PKGBUILD for this project >&2
+			false
+			;;
+		* )
+			;;
+	esac
+
+	if $VALIDATED
+	then
+		break
+	fi
+done
+
+if $VALIDATED
+then
+	:
+else
+	echo System not supported >&2
+	false
+fi
+
+for d in de_DE es_ES fr_FR it_IT
+do
+	MISSINGLANG=true
+
+	for e in $( locale -a | if grep $d; then true; fi )
+	do
+		case "$e" in
+			$d.utf8 | $d.UTF-8 )
+				MISSINGLANG=false
+				;;
+			* )
+				;;
+		esac
+	done 
+
+	if $MISSINGLANG
+	then
+		echo locale for $d not found 1>&2
+		false
+	fi
+done
+
+case "$DIST_ID" in
+	centos | rhel | rocky | almalinux )
+		if test "$VERSION_ID" -lt 8
+		then
+			CFLAGS="$CFLAGS -std=c99"
+		fi
+		;;
+	debian | raspbian )
+		if test "$VERSION_ID" -lt 9
+		then
+			CFLAGS="$CFLAGS -std=c99"
+		fi
+		;;
+	* )
+		;;
+esac
+
+. os/fakeroot.sh

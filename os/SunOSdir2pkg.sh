@@ -1,4 +1,4 @@
-#!/bin/sh -ex
+#!/bin/sh -e
 #
 #  Copyright 2021, Roger Brown
 #
@@ -17,8 +17,10 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: SunOSdir2pkg.sh 95 2021-12-11 05:50:41Z rhubarb-geek-nz $
+# $Id: SunOSdir2pkg.sh 129 2021-12-31 05:33:35Z rhubarb-geek-nz $
 #
+
+. os/fakeroot.sh
 
 getField()
 {
@@ -107,11 +109,15 @@ setOwner()
 			case "$D" in
 			*5* )
 				case "$C" in
-					*usr/dt/bin/dtmail | *usr/dt/bin/dtmailpr )
-						echo "$A" "$B" "$C" 2555 root mail
-						;;
-					*usr/dt/bin/dtappgather )
-						echo "$A" "$B" "$C" 4555 root bin
+					*=* )
+						LEFT=$(echo $C | sed "y/=/ /" | sed "y/'/ /" | while read A B C; do echo $A; break; done )
+						RIGHT=$(echo $C | sed "y/=/ /" | sed "y/'/ /" | while read A B C; do echo $B; break; done )
+						GROUP=$(fakeroot_chgrp $LEFT)
+						if test -z "$GROUP"
+						then
+							GROUP=bin
+						fi
+						echo "$A" "$B" "$C" "$D" root $GROUP
 						;;
 					* )
 						echo "$A" "$B" "$C" "$D" root bin
@@ -127,14 +133,19 @@ setOwner()
 			echo "$A" "$B" "$C"
 			;;
 		d )
-			case "$C" in
-			*/bin | */lib | */lib/amd64 | */lib/sparcv9 )
-				echo "$A" "$B" "$C" "$D"  root "$BINGRP"
-				;;
-			* )
-				echo "$A" "$B" "$C" "$D"  root "$USRGRP"
-				;;
-			esac
+			if test -d "/$D"
+			then
+				echo "DIR $D already exists" >&2
+			else
+				case "$C" in
+				*/bin | */lib | */lib/amd64 | */lib/sparcv9 )
+					echo "$A" "$B" "$C" "$D"  root "$BINGRP"
+					;;
+				* )
+					echo "$A" "$B" "$C" "$D"  root "$USRGRP"
+					;;
+				esac
+			fi
 			;;
 		* )
 			;;
@@ -157,7 +168,7 @@ rm -rf "$PKGTMP"
 
 mkdir "$PKGTMP"
 
-cat "$PKGPROTO"
+cp "$PKGPROTO" "log/prototype.$PKG"
 
 pkgmk -o -r . -d "$PKGTMP" -f "$PKGPROTO" "$PKG"
 

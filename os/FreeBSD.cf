@@ -1,0 +1,70 @@
+#
+#  Copyright 2021, Roger Brown
+#
+#  This file is part of rhubarb pi.
+#
+#  This program is free software: you can redistribute it and/or modify it
+#  under the terms of the GNU General Public License as published by the
+#  Free Software Foundation, either version 3 of the License, or (at your
+#  option) any later version.
+# 
+#  This program is distributed in the hope that it will be useful, but WITHOUT
+#  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+#  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+#  more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+# $Id: FreeBSD.cf 129 2021-12-31 05:33:35Z rhubarb-geek-nz $
+#
+
+MISSINGPKG=
+
+for d in autoconf automake bdftopcf gettext-runtime git gmake iconv ksh93 libXScrnSaver libtool open-motif tcl86 xorg xorg-fonts
+do
+	if pkg info "$d" > /dev/null
+	then
+		:
+	else
+		MISSINGPKG="$MISSINGPKG $d"
+	fi
+done
+
+if test -n "$MISSINGPKG"
+then
+	echo MISSING PACKAGES : pkg install $MISSINGPKG >&2
+	false
+fi
+
+for d in $(find /usr/local/lib -name tclConfig.sh)
+do
+	if test -f "$d"
+	then
+		CONFIGURATION_PARAMS="$CONFIGURATION_PARAMS --with-tcl=$(dirname $d)"
+	fi
+done
+
+for d in de_DE es_ES fr_FR it_IT
+do
+	MISSINGLANG=true
+
+	for e in $( locale -a | if grep $d; then true; fi  )
+	do
+		case "$e" in
+			$d.utf8 | $d.UTF-8 )
+				MISSINGLANG=false
+				;;
+			* )
+				;;
+		esac
+	done 
+
+	if $MISSINGLANG
+	then
+		echo locale for $d not found  1>&2
+		false
+	fi
+done
+
+. os/fakeroot.sh

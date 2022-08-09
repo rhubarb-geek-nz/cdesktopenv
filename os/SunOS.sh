@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: SunOS.sh 94 2021-12-10 14:31:54Z rhubarb-geek-nz $
+# $Id: SunOS.sh 129 2021-12-31 05:33:35Z rhubarb-geek-nz $
 #
 
 test -n "$1"
@@ -27,8 +27,23 @@ DIRNAME=$(dirname "$0")
 MACHINE_ARCH=$(uname -m)
 VERSION="$1"
 SVNREV="$2"
-EMAIL="$(git config user.email)"
 VENDOR="cdesktopenv.sf.net"
+
+if test -z "$MAINTAINER"
+then
+	if git config user.email > /dev/null
+	then
+		MAINTAINER="$(git config user.email)"
+	else
+		MAINTAINER="$(id -un)@$(hostname)"
+	fi
+fi
+
+if test -z "$DESTDIR"
+then
+	DESTDIR="$(pwd)/data"
+	export DESTDIR
+fi
 
 clean()
 {
@@ -45,14 +60,55 @@ rm -rf intdir dist
 
 mkdir intdir dist
 
+if test -d data-64
+then
+	case "$(uname -p)" in
+		i386 )
+			ARCH64=amd64
+			;;
+		* )
+			ARCH64=sparcv9
+			;;
+	esac
+	(
+		set -e
+		cd data-64/usr/dt/lib
+		tar cf - lib*
+	) | (
+		set -e
+		cd data/usr/dt/lib
+		mkdir "$ARCH64"
+		ln -s "$ARCH64" 64
+		cd "$ARCH64"
+		tar xvf -
+	)
+fi
+
+os/elf.sh
+
 (
 	set -e
 	cd data
-	for d in var etc usr
-	do
-		if test -d "$d/dt"
+
+	if test ! -h usr/dt/include
+	then
+		if test ! -d usr/dt/share/include
 		then
-			find "$d/dt" | while read N
+			echo MOVING INCLUDES TO SHARE
+			mv usr/dt/include usr/dt/share/include
+		fi
+	fi
+)
+
+(
+	set -e
+	cd data
+
+	for d in var/dt etc/dt usr/dt etc/pam.d
+	do
+		if test -d "$d"
+		then
+			find "$d" | while read N
 			do
 				if grep " $N\$" ../os/SunOS.map >/dev/null
 				then
@@ -64,7 +120,7 @@ mkdir intdir dist
 						grep " $M\$" ../os/SunOS.map | while read A B; do echo $A $N; done
 					else
 						echo ERROR $N or $M not found >&2
-						echo SUNWdtbas $N
+						echo SUNWdtaux $N
 					fi
 				fi
 			done
@@ -95,45 +151,25 @@ do
 			cd "intdir/$PKG"
 			tar xf -
 		)
+
+		if test -u "data/$FILE"
+		then
+			echo "SETUID $FILE"
+			chmod u+s "intdir/$PKG/$FILE"
+		fi
+
+		if test -g "data/$FILE"
+		then
+			echo "SETGID $FILE"
+			chmod g+s "intdir/$PKG/$FILE"
+		fi
+
+		if test -f "data/$FILE"
+		then
+			chmod -w "intdir/$PKG/$FILE"
+		fi
 	fi
 done
-
-(
-	set -e
-
-	for d in intdir/*/usr/dt/lib/lib*.so* \
-			intdir/*/usr/dt/lib/sparcv9/lib*.so* \
-			intdir/*/usr/dt/lib/amd64/lib*.so* 
-	do
-		if test ! -h "$d"
-		then
-			if test -f "$d"
-			then
-				if strip "$d"
-				then
-					:
-				fi
-			fi
-		fi
-	done
-
-	for d in intdir/*/usr/dt/bin/*
-	do
-		if test -f "$d"
-		then
-			if test -x "$d"
-			then
-				if objdump -p "$d" > /dev/null
-				then
-					if strip "$d"
-					then
-						:
-					fi
-				fi
-			fi
-		fi
-	done
-)
 
 cat > intdir/depend <<EOF
 P SUNWdtcor Solaris Desktop /usr/dt filesystem anchor
@@ -146,7 +182,7 @@ NAME="CDE application basic runtime environment"
 PKG="SUNWdtbas"
 VERSION="$VERSION"
 VENDOR="$VENDOR"
-EMAIL="$EMAIL"
+EMAIL="$MAINTAINER"
 BASEDIR="/"
 EOF
 
@@ -161,7 +197,7 @@ NAME="CDE Dtbuilder"
 PKG="SUNWdtab"
 VERSION="$VERSION"
 VENDOR="$VENDOR"
-EMAIL="$EMAIL"
+EMAIL="$MAINTAINER"
 BASEDIR="/"
 EOF
 
@@ -176,7 +212,7 @@ NAME="CDE UTF-8 Code Conversion Tool"
 PKG="SUNWdtct"
 VERSION="$VERSION"
 VENDOR="$VENDOR"
-EMAIL="$EMAIL"
+EMAIL="$MAINTAINER"
 BASEDIR="/"
 EOF
 
@@ -191,7 +227,7 @@ NAME="CDE daemons"
 PKG="SUNWdtdmn"
 VERSION="$VERSION"
 VENDOR="$VENDOR"
-EMAIL="$EMAIL"
+EMAIL="$MAINTAINER"
 BASEDIR="/"
 EOF
 
@@ -206,7 +242,7 @@ NAME="Solaris Desktop Login Environment"
 PKG="SUNWdtdte"
 VERSION="$VERSION"
 VENDOR="$VENDOR"
-EMAIL="$EMAIL"
+EMAIL="$MAINTAINER"
 BASEDIR="/"
 EOF
 
@@ -221,7 +257,7 @@ NAME="CDE Help Runtime"
 PKG="SUNWdthe"
 VERSION="$VERSION"
 VENDOR="$VENDOR"
-EMAIL="$EMAIL"
+EMAIL="$MAINTAINER"
 BASEDIR="/"
 EOF
 
@@ -236,7 +272,7 @@ NAME="CDE Help Volumes"
 PKG="SUNWdthev"
 VERSION="$VERSION"
 VENDOR="$VENDOR"
-EMAIL="$EMAIL"
+EMAIL="$MAINTAINER"
 BASEDIR="/"
 EOF
 
@@ -251,7 +287,7 @@ NAME="CDE Includes"
 PKG="SUNWdtinc"
 VERSION="$VERSION"
 VENDOR="$VENDOR"
-EMAIL="$EMAIL"
+EMAIL="$MAINTAINER"
 BASEDIR="/"
 EOF
 
@@ -266,7 +302,7 @@ NAME="CDE Desktop Window Manager"
 PKG="SUNWdtwm"
 VERSION="$VERSION"
 VENDOR="$VENDOR"
-EMAIL="$EMAIL"
+EMAIL="$MAINTAINER"
 BASEDIR="/"
 EOF
 
@@ -281,7 +317,7 @@ NAME="CDE Demos"
 PKG="SUNWdtdem"
 VERSION="$VERSION"
 VENDOR="$VENDOR"
-EMAIL="$EMAIL"
+EMAIL="$MAINTAINER"
 BASEDIR="/"
 EOF
 
@@ -296,7 +332,7 @@ NAME="CDE Desktop Applications"
 PKG="SUNWdtdst"
 VERSION="$VERSION"
 VENDOR="$VENDOR"
-EMAIL="$EMAIL"
+EMAIL="$MAINTAINER"
 BASEDIR="/"
 EOF
 
@@ -311,7 +347,7 @@ NAME="CDE Desktop ToolTalk runtime"
 PKG="SUNWtltk"
 VERSION="$VERSION"
 VENDOR="$VENDOR"
-EMAIL="$EMAIL"
+EMAIL="$MAINTAINER"
 BASEDIR="/"
 EOF
 
@@ -334,11 +370,13 @@ NAME="CDE Solaris Desktop Extensions Applications"
 PKG="SUNWdtezt"
 VERSION="$VERSION"
 VENDOR="$VENDOR"
-EMAIL="$EMAIL"
+EMAIL="$MAINTAINER"
 BASEDIR="/"
 EOF
 
-cat > intdir/depend <<EOF
+if test -d intdir/SUNWdthed
+then
+	cat > intdir/depend <<EOF
 P SUNWdtcor Solaris Desktop /usr/dt filesystem anchor
 P SUNWmfrun Motif RunTime Kit
 P SUNWcsr Core Solaris, (Root)
@@ -346,15 +384,16 @@ P SUNWcsu Core Solaris, (Usr)
 P SUNWcsd Core Solaris Devices
 EOF
 
-os/SunOSdir2pkg.sh intdir intdir/SUNWdthed dist <<EOF
+	os/SunOSdir2pkg.sh intdir intdir/SUNWdthed dist <<EOF
 CATEGORY="system"
 NAME="CDE Help Developer Environment"
 PKG="SUNWdthed"
 VERSION="$VERSION"
 VENDOR="$VENDOR"
-EMAIL="$EMAIL"
+EMAIL="$MAINTAINER"
 BASEDIR="/"
 EOF
+fi
 
 cat > intdir/depend <<EOF
 P SUNWdtcor Solaris Desktop /usr/dt filesystem anchor
@@ -369,7 +408,7 @@ NAME="CDE icons"
 PKG="SUNWdticn"
 VERSION="$VERSION"
 VENDOR="$VENDOR"
-EMAIL="$EMAIL"
+EMAIL="$MAINTAINER"
 BASEDIR="/"
 EOF
 
@@ -386,9 +425,22 @@ NAME="CDE man pages"
 PKG="SUNWdtma"
 VERSION="$VERSION"
 VENDOR="$VENDOR"
-EMAIL="$EMAIL"
+EMAIL="$MAINTAINER"
 BASEDIR="/"
 EOF
+
+if test -d intdir/SUNWdtaux
+then
+	os/SunOSdir2pkg.sh intdir intdir/SUNWdtaux dist <<EOF
+CATEGORY="system"
+NAME="CDE auxiliary content"
+PKG="SUNWdtaux"
+VERSION="$VERSION"
+VENDOR="$VENDOR"
+EMAIL="$MAINTAINER"
+BASEDIR="/"
+EOF
+fi
 
 rm intdir/depend
 
@@ -421,3 +473,27 @@ echo --- intdir --
 ls intdir
 
 ls intdir | wc -l
+
+grep " etc/pam.d/dt
+ usr/dt/bin/dtappgather=
+ usr/dt/bin/dtmail=
+ usr/dt/bin/dtsession=
+ usr/dt/lib/64
+libDtTerm.so
+ usr/dt/bin/dtterm=" log/prototype.*
+
+rm -rf tmp
+
+mkdir tmp
+
+pkgtrans "$PKGFILE" tmp all
+
+grep " etc/pam.d/dt
+ usr/dt/bin/dtappgather 
+ usr/dt/bin/dtmail 
+ usr/dt/bin/dtsession 
+ usr/dt/lib/64
+libDtTerm.so
+ usr/dt/bin/dtterm " tmp/*/pkgmap
+
+rm -rf tmp

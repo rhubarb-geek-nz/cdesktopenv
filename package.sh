@@ -17,49 +17,23 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: package.sh 99 2021-12-12 17:00:00Z rhubarb-geek-nz $
+# $Id: package.sh 129 2021-12-31 05:33:35Z rhubarb-geek-nz $
 #
 
 if test 0 -eq $(id -u)
 then
-	echo This should not need to be run as root, stay safe out there. 1>&2
+	echo This should not need to be run as root, stay safe out there. >&2
+	false
+fi
+
+if test -e /usr/dt/bin/dtsession
+then
+	echo Do not build with an installed version, they may conflict and result in an ambiguous build. >&2
 	false
 fi
 
 MACHINE_ARCH="$(uname -m)"
 OPSYS="$(uname -s)"
-
-case "$OPSYS" in
-	SunOS )
-		for d in de es fr it
-		do
-			pkg info "system/osnet/locale/$d"
-		done
-		;;
-	* )
-		for d in de_DE es_ES fr_FR it_IT
-		do
-			MISSINGLANG=true
-
-			for e in $( locale -a | if grep $d; then true; fi  )
-			do
-				case "$e" in
-					$d.utf8 | $d.UTF-8 )
-						MISSINGLANG=false
-						;;
-					* )
-						;;
-				esac
-			done 
-
-			if $MISSINGLANG
-			then
-				echo locale for $d not found 1>&2
-				false
-			fi
-		done
-		;;
-esac
 
 getVersion()
 {
@@ -77,7 +51,7 @@ getVersion()
 
 	(
 		cpp $INCL <<EOF
-#include "cdesktopenv-code/cde/exports/include/Dt/Dt.h"
+#include "cdesktopenv-code/cde/include/Dt/Dt.h"
 DtVERSION_STRING
 EOF
 	) | grep CDE | tail -1 | sed "y/\"/ /" | (
@@ -95,18 +69,19 @@ EOF
 	)
 }
 
-first()
-{
-	echo $1
-}
-
 cleanup()
 {
-	for d in cdesktopenv-code filesets rpms rpm.spec data meta
+	for d in cdesktopenv-code filesets rpms rpm.spec meta data data-64
 	do
 		if test -w "$d"
 		then
 			rm -rf "$d"
+
+			if test -d "$d"
+			then
+				chmod -R +w "$d"
+				rm -rf "$d"
+			fi
 		fi
 	done
 }
@@ -119,6 +94,23 @@ fi
 cleanup
 
 trap cleanup 0
+
+rm -rf log
+
+DESTDIR=$(pwd)/data
+DESTDIR64=$(pwd)/data-64
+
+. "os/$OPSYS.cf"
+
+if test -z "$MAKE"
+then
+	if which gmake
+	then
+		MAKE=gmake
+	else
+		MAKE=make
+	fi
+fi
 
 if test ! -d cdesktopenv-code
 then
@@ -169,19 +161,66 @@ then
 		done
 	)
 
+	if test "$OPSYS" = "SunOS"
+	then
+		(
+			set -e
+
+			cd cdesktopenv-code/cde
+
+			./autogen.sh
+
+			./configure --prefix=/usr/dt $CONFIGURATION_PARAMS MAKE="$MAKE" CFLAGS="-m64 $CFLAGS" CXXFLAGS="-m64 $CXXFLAGS"
+
+			(
+				set -e
+
+				cd util
+
+				MAKE="$MAKE" "$MAKE"
+			)
+
+			(
+				set -e
+
+				cd lib
+
+				MAKE="$MAKE" "$MAKE"
+
+				MAKE="$MAKE" DESTDIR="$DESTDIR64" "$MAKE" install
+			)
+
+			(
+				set -e
+
+				cd programs/dtinfo/DtMmdb
+
+				MAKE="$MAKE" "$MAKE"
+
+				MAKE="$MAKE" DESTDIR="$DESTDIR64" "$MAKE" install
+			)
+
+			MAKE="$MAKE" "$MAKE" clean			
+		)
+	fi
+
 	(
 		set -e
 
 		cd cdesktopenv-code/cde
 
-		make World
+		./autogen.sh
+
+		./configure --prefix=/usr/dt $CONFIGURATION_PARAMS MAKE="$MAKE" CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS"
+
+		MAKE="$MAKE" "$MAKE"
 	)
 fi
 
-ls -ld cdesktopenv-code/cde/exports/include/Dt/Dt.h cdesktopenv-code/cde/programs/dtksh/dtksh cdesktopenv-code/cde/programs/dtdocbook/instant/instant
+ls -ld cdesktopenv-code/cde/include/Dt/Dt.h cdesktopenv-code/cde/programs/dtksh/dtksh cdesktopenv-code/cde/programs/dtdocbook/instant/instant
 
 GITREV=$(cd cdesktopenv-code ; git rev-parse HEAD)
-GITHASH=$(echo $GITREV | dd bs=8 count=1 2>/dev/null )
+GITHASH=$(cd cdesktopenv-code ; git rev-parse --short HEAD)
 
 if test -n "$2"
 then
@@ -201,7 +240,7 @@ for d in "patches/$GITREV.$OPSYS.$MACHINE_ARCH" "patches/$GITREV.$OPSYS" "patche
 do
 	if test -f "$d"
 	then
-		if ( cd .git ) 
+		if ( cd .git 2>/dev/null )
 		then
 			SVNREV=$( echo $SVNREV + $( git log --oneline "$d" | wc -l) | bc)
 		else
@@ -216,222 +255,61 @@ echo VERSION=$VERSION SVNREV=$SVNREV
 
 test -n "$VERSION"
 
-for db in cdesktopenv-code/cde/databases/CDE-*.db
-do
-	set -e
-	FILESET=$(basename $db)
-	FILESET=$(echo $FILESET | sed y/./\ /)
-	FILESET=$(first $FILESET)
-
-	case "$FILESET" in
-		*-JP )
-			echo ignoring "$FILESET" 
-			;;
-		* )
-			mkdir -p "filesets/HP/$FILESET/data"
-
-			cdesktopenv-code/cde/admin/IntegTools/dbTools/installCDE -s cdesktopenv-code/cde -destdir "filesets/HP/$FILESET/data" -f "$FILESET" -DontRunScripts
-
-			MISSING=false
-
-			if grep missing installCDE*.log 
-			then
-				MISSING=true
-			fi
-
-			rm -rf installCDE*.log "/tmp/$FILESET.good" "/tmp/$FILESET.err" "/tmp/$FILESET.missing" "/tmp/$FILESET.lst"
-
-			if $MISSING
-			then
-				case "$FILESET" in
-					CDE-HELP-DE | CDE-HELP-ES | CDE-HELP-FR | CDE-HELP-IT )
-						;;
-					CDE-INFOLIB-DE | CDE-INFOLIB-ES | CDE-INFOLIB-FR | CDE-INFOLIB-IT )
-						;;
-					* )
-						false
-						;;
-				esac
-			fi
-			;;
-	esac
-done
-
-for d in filesets/HP/CDE-*
-do
-	COUNT=$(find $d -type f | wc -l)
-	
-	if test "$COUNT" -eq 0
-	then
-		echo "$d" has no files at all
-		rm -rf "$d"
-	fi
-done
-
-if ls -ld filesets/HP/*/data/usr/usr
-then
-	rmdir filesets/HP/*/data/usr/usr
-fi
-
-echo duplicate file check start
-
-(
-	set -e 
-	for e in filesets/HP/*/data
-	do
-		(
-			set -e
-			cd $e
-			find . -type f 
-		)
-	done
-) | while read N
-do
-	set -e
-	COUNT=$(ls -ld filesets/HP/*/data/$N | wc -l)
-	if test "$COUNT" -ne "1"
-	then
-		COUNT2=$(ls -ld filesets/HP/CDE-*RUN/data/$N | wc -l)
-		COUNT3=$(echo $COUNT2+1 | bc)
-		if test "$COUNT" -eq "$COUNT3"
-		then
-			rm filesets/HP/CDE-*RUN/data/$N
-		else
-			ls -ld filesets/HP/*/data/$N
-			echo $COUNT "$COUNT2" "$COUNT3" 
-			false
-		fi
-	fi
-done
-
-echo duplicate link check start
-
-(
-	set -e 
-	for e in filesets/HP/*/data
-	do
-		(
-			set -e
-			cd $e
-			find . -type l
-		)
-	done
-) | while read N
-do
-	set -e
-	COUNT=$(ls -ld filesets/HP/*/data/$N | wc -l)
-	if test "$COUNT" -ne "1"
-	then
-		if ls -ld filesets/HP/CDE-RUN/data/$N
-		then
-			for d in filesets/HP/*/data/$N
-			do
-				case "$d" in
-					filesets/HP/CDE-RUN/data/$N )
-						;;
-					* )
-						rm "$d"
-						;;
-				esac
-			done
-		else
-			if ls -ld filesets/HP/CDE-MAN/data/$N
-			then
-				for d in filesets/HP/*/data/$N
-				do
-					case "$d" in
-						filesets/HP/CDE-MAN/data/$N )
-							;;
-						* )
-							rm "$d"
-							;;
-					esac
-				done
-			else
-				ls -ld filesets/HP/*/data/$N
-				false
-			fi
-		fi
-	fi
-done
-
-echo duplicate check complete
-
-find filesets/HP -type l | (
-	set -e
-	while read N
-	do
-		set -e
-		S=$(readlink $N)
-		case "$S" in
-			./* )
-				S=$(echo $S | sed "s/\.\///")
-				rm "$N"
-				ln -s "$S" "$N"
-				;;
-			* )
-				;;
-		esac
-	done
-)
-
-echo links complete
-
-while read L R H M
-do
-	mkdir -p "filesets/HP/$R/data/etc/dt/appconfig/appmanager/$L"
-	mkdir -p "filesets/HP/$R/data/etc/dt/appconfig/types/$L"
-	mkdir -p "filesets/HP/$H/data/etc/dt/appconfig/help/$L"
-done << EOF
-de_DE.ISO8859-1	CDE-DE   CDE-HELP-DE
-es_ES.ISO8859-1 CDE-ES   CDE-HELP-ES
-fr_FR.ISO8859-1 CDE-FR   CDE-HELP-FR
-it_IT.ISO8859-1 CDE-IT   CDE-HELP-IT
-C               CDE-C    CDE-HELP-C
-EOF
-
-mkdir -p filesets/HP/CDE-ICONS/data/etc/dt/appconfig/icons/C
-mkdir -p filesets/HP/CDE-RUN/data/etc/dt/config/Xsession.d
-mkdir -p filesets/HP/CDE-RUN/data/var/dt/appconfig/appmanager
-mkdir -p filesets/HP/CDE-RUN/data/var/dt/tmp
-
 mkdir data
 
-echo Setup package fileset from HP filesets
+TARNAME="cdesktopenv"_"$VERSION"
+if test "$SVNREV" -gt 0
+then
+	TARNAME="$TARNAME"_"$SVNREV"
+fi
+TARNAME="$TARNAME".tar
+PWD=$(pwd)
 
-for d in filesets/HP/CDE-*
-do
+fakeroot <<EOF
+set -e
+cd "$PWD"
+(
 	set -e
+	cd cdesktopenv-code/cde
+	MAKE="$MAKE" "$MAKE" install "DESTDIR=$DESTDIR"
+)
+mkdir -p log
+(
+	set -e
+	cd data
+	find * | xargs ls -ld 
+) > log/install.lst
+if test -d data-64
+then
 	(
 		set -e
-		cd "$d/data"
-		tar cf - .
+		cd data-64
+		find * | xargs ls -ld 
+	) > log/install64.lst
+fi
+if test ! -d data/usr/dt/share/examples
+then
+	if test ! -h data/usr/dt/examples
+	then
+		ln -s share/examples data/usr/dt/examples
+	fi
+	(
+		set -e
+		cd cdesktopenv-code/cde
+		tar cf - examples
 	) | (
 		set -e
-		cd data
+		cd data/usr/dt/share
 		tar xf -
+		for d in hp ibm sun
+		do
+			D=\$(echo \$d | tr "[:lower:]" "[:upper:]" )
+			find examples -type f -name Makefile.\$d | while read N
+			do
+				mv "\$N" \$(dirname "\$N")/"Makefile.\$D"
+			done
+		done
 	)
-done
-
-if test -x "os/$(uname).sh"
-then
-	"os/$(uname).sh" "$VERSION" "$SVNREV"
-else
-	TARNAME="cdesktopenv"_"$VERSION"
-
-	if test "$SVNREV" -gt 0
-	then
-		TARNAME="$TARNAME"_"$SVNREV"
-	fi
-
-	TARNAME="$TARNAME".tar
-
-	(
-		set -e
-		cd data
-		tar cf "$TARNAME" */dt
-	)
-
-	mv "data/$TARNAME" .
-	ls -ld "$TARNAME"
 fi
+"os/$OPSYS.sh" "$VERSION" "$SVNREV"
+EOF

@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: FreeBSD.sh 98 2021-12-12 12:37:08Z rhubarb-geek-nz $
+# $Id: FreeBSD.sh 129 2021-12-31 05:33:35Z rhubarb-geek-nz $
 #
 
 VERSION="$1"
@@ -37,6 +37,18 @@ fi
 
 PKGNAME=cdesktopenv
 
+if test -z "$MAINTAINER"
+then
+	if git config user.email > /dev/null
+	then
+		MAINTAINER="$(git config user.email)"
+	else
+		MAINTAINER="$(id -un)@$(hostname)"
+	fi
+fi
+
+. os/fakeroot.sh
+
 mkdir meta
 
 (
@@ -49,7 +61,7 @@ origin x11/cde
 desc: <<EOD
 The Common Desktop Environment was created by a collaboration of Sun, HP, IBM, DEC, SCO, Fujitsu and Hitachi. Used on a selection of commercial UNIXs, it is now available as open-source software for the first time.
 EOD
-maintainer rhubarb-geek-nz@users.sourceforge.net
+maintainer $MAINTAINER
 prefix /
 licenses: [
     "LGPL2"
@@ -73,36 +85,50 @@ EOF
 	echo "}"
 )  > meta/MANIFEST
 
-echo ---- MANIFEST START ---
-cat meta/MANIFEST
-echo ---- MANIFEST END ---
+os/elf.sh
 
 find data -type f | xargs chmod -w
 
-chmod 2555 data/usr/dt/bin/dtmail
-chmod 2555 data/usr/dt/bin/dtmailpr
-chmod 4555 data/usr/dt/bin/dtappgather
-
 (
 	cd data
-	find */dt -type d | while read N
+	for d in */dt usr/local/etc/pam.d etc/pam.d
 	do
-		echo @dir $N
+		if test -d "$d"
+		then
+			find "$d" -type d | while read N
+			do
+				echo @dir $N
+			done
+		fi
+	done
+	for d in usr/local/etc/pam.d etc/pam.d
+	do
+		if test -d "$d"
+		then
+			find "$d" -type f
+		fi
 	done
 	find */dt -type f | (
 		CURGRP=
-		GRP=
+		CURMOD=
+		DESTDIR=$(pwd)
 
 		while read N
 		do
-			case "$N" in
-				usr/dt/bin/dtmail | usr/dt/bin/dtmailpr )
-					GRP="mail"
-					;;
-				* )
-					GRP=
-					;;
-			esac
+			GRP=$(fakeroot_chgrp "$N")
+			MOD=
+
+			if test -f "$N" && test -x "$N"
+			then
+				if test -g "$N"
+				then
+					MOD=2555
+				fi
+				if test -u "$N"
+				then
+					MOD=4555
+				fi
+			fi
 
 			if test "$CURGRP" != "$GRP"
 			then
@@ -115,10 +141,33 @@ chmod 4555 data/usr/dt/bin/dtappgather
 				fi
 			fi
 
+			if test "$CURMOD" != "$MOD"
+			then
+				CURMOD="$MOD"
+				if test -n "$CURMOD"
+				then
+					echo "@mode $CURMOD"
+				else
+					echo "@mode"
+				fi
+			fi
+
 			echo "$N"
 		done
 	)
 	find */dt -type l
 ) > meta/PLIST
 
+cp meta/PLIST log/PLIST
+
 pkg create -M meta/MANIFEST -o . -r data -v -p meta/PLIST
+
+ls -ld "$PKGNAME-$VERSION.pkg"
+
+tar tvfz "$PKGNAME-$VERSION.pkg" | grep "+COMPACT_MANIFEST
++MANIFEST
+etc/pam.d/dt
+bin/dtappgather
+bin/dtmail
+bin/dtsession
+bin/dtterm"
