@@ -1,0 +1,24 @@
+diff --git a/cde/programs/dtksh/ksh93/src/cmd/ksh93/Mamfile b/cde/programs/dtksh/ksh93/src/cmd/ksh93/Mamfile
+index d604c138e..945a0a926 100644
+--- a/cde/programs/dtksh/ksh93/src/cmd/ksh93/Mamfile
++++ b/cde/programs/dtksh/ksh93/src/cmd/ksh93/Mamfile
+@@ -13,7 +13,8 @@ setv PACKAGE_ast_INCLUDE ${INSTALLROOT}/include/ast
+ setv PACKAGEROOT ../../../../..
+ setv AR ${mam_cc_AR} ${mam_cc_AR_ARFLAGS}
+ setv CC cc
+-setv mam_cc_FLAGS
++setv mam_cc_FLAGS -lm
++setv mam_libm -lm
+ setv KSH_RELFLAGS
+ setv KSH_SHOPTFLAGS
+ setv CCFLAGS ${-debug-symbols?1?${mam_cc_DEBUG} -D_BLD_DEBUG?${mam_cc_OPTIMIZE}?}
+diff --git a/cde/programs/fontaliases/Makefile.am b/cde/programs/fontaliases/Makefile.am
+index 29abc6d15..6a51e33b9 100644
+--- a/cde/programs/fontaliases/Makefile.am
++++ b/cde/programs/fontaliases/Makefile.am
+@@ -33,4 +33,4 @@ fonts.dir: dtinfo.pcf.gz
+ 
+ install-data-hook:
+ 	$(MKDIR_P) $(DESTDIR)$(fontaliasesconfdir)
+-	$(CP) $(fontaliasesdatadir)/$(FONTS_ALIAS) $(DESTDIR)$(fontaliasesconfdir)/fonts.alias
++	$(CP) $(DESTDIR)$(fontaliasesdatadir)/$(FONTS_ALIAS) $(DESTDIR)$(fontaliasesconfdir)/fonts.alias
