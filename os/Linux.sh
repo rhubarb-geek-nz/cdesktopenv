@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: Linux.sh 129 2021-12-31 05:33:35Z rhubarb-geek-nz $
+# $Id: Linux.sh 182 2022-08-20 23:44:41Z rhubarb-geek-nz $
 #
 
 osRelease()
@@ -194,7 +194,7 @@ do
 		debian | ubuntu )
 			MAKEDEB=true
 			;;
-		rhel | centos | fedora | suse | opensuse )
+		rhel | centos | fedora | suse | opensuse | mariner )
 			MAKERPM=true
 			;;
 		slackware )
