@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: package.sh 175 2022-08-01 17:58:31Z rhubarb-geek-nz $
+# $Id: package.sh 225 2023-01-27 06:36:11Z rhubarb-geek-nz $
 #
 
 if test 0 -eq $(id -u)
@@ -257,12 +257,6 @@ test -n "$VERSION"
 
 mkdir data
 
-TARNAME="cdesktopenv"_"$VERSION"
-if test "$SVNREV" -gt 0
-then
-	TARNAME="$TARNAME"_"$SVNREV"
-fi
-TARNAME="$TARNAME".tar
 PWD=$(pwd)
 
 fakeroot <<EOF

@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: Linux.sh 182 2022-08-20 23:44:41Z rhubarb-geek-nz $
+# $Id: Linux.sh 225 2023-01-27 06:36:11Z rhubarb-geek-nz $
 #
 
 osRelease()
@@ -185,6 +185,7 @@ MAKEDEB=false
 MADEPKG=false
 MAKESLACK=false
 MAKETAR=false
+MAKEINSTALLER=false
 
 SVNREV=$(echo 1+$SVNREV | bc)
 
@@ -199,6 +200,9 @@ do
 			;;
 		slackware )
 			MAKESLACK=true
+			;;
+		gentoo )
+			MAKEINSTALLER=true
 			;;
 		* )
 			;;
@@ -218,9 +222,14 @@ do
 	then
 		break
 	fi
+
+	if $MAKEINSTALLER
+	then
+		break
+	fi
 done
 
-if $MAKEDEB || $MAKERPM || $MAKESLACK
+if $MAKEDEB || $MAKERPM || $MAKESLACK || $MAKEINSTALLER
 then
 	:
 else
@@ -742,7 +751,7 @@ EOF
 		cd data
 
 		(
-			find */dt -type l | while read N
+			find */dt -type l | sort | while read N
 			do
 				D=$(dirname $N)
 				B=$(basename $N)
@@ -761,7 +770,7 @@ EOF
 	
 		(
 			cd root
-			tar  --owner=0 --group=0 --create --file ../root.tar .
+			tar --owner=0 --group=0 --create --file ../root.tar .
 		)
 
 		tar --concatenate --file root.tar data.tar
@@ -807,6 +816,94 @@ bin/dtterm"
 	MADEPKG=true
 fi
 
+
+if $MAKEINSTALLER
+then
+	DESTARCH=$(arch)
+	SVNREV=$(echo $SVNREV-1 | bc)
+	DESTNAME="cdesktopenv-$VERSION"
+	if test "$SVNREV" -gt 0
+	then
+		DESTFILE="$DESTNAME-r$SVNREV-$DESTARCH.tar.gz"
+	else
+		DESTFILE="$DESTNAME-$DESTARCH.tar.gz"
+	fi
+
+	(
+		set -e
+		cd data
+		DESTDIR=$(pwd)
+		echo "all:"
+		while read A B C
+		do
+			case "$A" in
+				chgrp )
+					echo "$B"
+					;;
+				chown )
+					case "$B" in
+						root | root:root )
+							;;
+						* )
+							false
+							;;
+					esac
+					;;
+				* )
+					false
+					;;
+			esac
+		done < "$FAKEROOT_LOG" | sort -u | while read GRP
+		do
+			echo "	getent group \"$GRP\""
+		done
+
+		echo
+		echo "clean:"
+		echo
+		echo "install:"
+		find */* -type d | sort | while read N
+		do
+			echo "	install -d \"\$(DESTDIR)/$N\""
+		done
+		find * -type f | sort | while read N
+		do
+			ATTR=$(stat "--format=%a" "$N")
+			DIRNAME=$(dirname "$N")
+			G=$(fakeroot_chgrp $N)
+			if test -z "$G"
+			then
+				G="root"
+			fi
+			case "$G" in
+				root )
+					echo "	install --mode=0$ATTR \"$N\" \"\$(DESTDIR)/$DIRNAME\""
+					;;
+				* )
+					echo "	install --mode=0$ATTR --group=\"$G\" \"$N\" \"\$(DESTDIR)/$DIRNAME\""
+					;;
+			esac
+		done		
+		find * -type l | sort | while read N
+		do
+			LINKVAL=$(readlink "$N")
+			echo "	ln -s \"$LINKVAL\" \"\$(DESTDIR)/$N\""
+		done		
+		find * -type l | xargs rm		
+	) > rpm.spec
+
+	mv rpm.spec data/Makefile
+
+	chmod -w data/Makefile
+
+	mv data "$DESTNAME"
+
+	tar --create --gzip --owner=0 --group=0 --file "$DESTFILE" "$DESTNAME"
+
+	rm -rf "$DESTNAME"
+
+	MADEPKG=true
+fi
 
 if test -d rpms
 then
