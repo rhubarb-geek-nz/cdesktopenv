@@ -16,7 +16,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: Linux.cf 182 2022-08-20 23:44:41Z rhubarb-geek-nz $
+# $Id: Linux.cf 223 2023-01-22 00:09:13Z rhubarb-geek-nz $
 #
 
 VALIDATED=false
@@ -95,7 +95,7 @@ do
 			;;
 		gentoo )
 			MISSING=
-			for d in app-arch/ncompress app-shells/ksh dev-lang/tcl media-fonts/font-bitstream-100dpi media-libs/freetype media-libs/libjpeg-turbo net-libs/rpcsvc-proto net-nds/rpcbind sys-devel/autoconf sys-devel/automake sys-devel/bc sys-devel/bison sys-devel/flex sys-devel/libtool sys-devel/m4 sys-libs/libutempter sys-libs/pam virtual/libcrypt x11-apps/bdftopcf x11-apps/mkfontscale x11-apps/xrdb x11-apps/xset x11-libs/libX11 x11-libs/libXScrnSaver x11-libs/libXaw x11-libs/libXft x11-libs/libXinerama x11-libs/libXmu x11-libs/libXpm x11-libs/libXt x11-libs/motif x11-misc/xbitmaps
+			for d in app-arch/ncompress app-shells/ksh app-text/opensp dev-lang/tcl media-fonts/font-bitstream-100dpi media-libs/freetype media-libs/libjpeg-turbo net-libs/rpcsvc-proto net-nds/rpcbind sys-devel/autoconf sys-devel/automake sys-devel/bc sys-devel/bison sys-devel/flex sys-devel/libtool sys-devel/m4 sys-libs/libutempter sys-libs/pam virtual/libcrypt x11-apps/bdftopcf x11-apps/mkfontscale x11-apps/xrdb x11-apps/xset x11-libs/libX11 x11-libs/libXScrnSaver x11-libs/libXaw x11-libs/libXft x11-libs/libXinerama x11-libs/libXmu x11-libs/libXpm x11-libs/libXt x11-libs/motif x11-misc/xbitmaps
 			do
 				if qlist -I "$d"
 				then
