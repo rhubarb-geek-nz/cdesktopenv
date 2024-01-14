@@ -86,10 +86,7 @@ cleanup()
 	done
 }
 
-if test -n "$1"
-then
-	CHECKOUT_VERSION="$1"
-fi
+CHECKOUT_VERSION="2.5.2"
 
 cleanup
 
