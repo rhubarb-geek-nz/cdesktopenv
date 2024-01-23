@@ -1,0 +1,47 @@
+name       : cdesktopenv
+version    : 2.4.0
+release    : 1
+source     : 
+    - https://sourceforge.net/projects/cdesktopenv/files/src/cde-2.4.0.tar.gz : 023df9d71f625583f36c2e3f7e57ddf85a8798eda203b40ba583c12c0c446e1e
+license    : LGPL-2.1-or-later
+summary    : The Common Desktop Environment, the classic UNIX desktop
+component  : desktop.motif
+builddeps  :
+    - ksh
+    - motif-devel
+    - ncompress
+    - tcl-devel
+    - usr-include-tcl-devel
+    - libxinerama-devel
+    - libxscrnsaver-devel
+    - libtirpc-devel
+    - libjpeg-turbo-devel
+    - rpcsvc-proto-devel
+    - libutempter-devel
+    - xbitmaps
+    - bdftopcf
+    - mkfontscale
+    - libiconv-devel
+    - libxaw-devel
+    - xrdb
+rundeps    :
+    - ksh
+    - xbitmaps
+    - bdftopcf
+    - mkfontscale
+    - ncompress
+    - xrdb
+    - rpcbind
+description: |
+    The Common Desktop Environment was created by a collaboration of Sun, HP, IBM, DEC, SCO, Fujitsu and Hitachi. Used on a selection of commercial UNIXs, it is now available as open-source software for the first time.
+setup      : |
+    pwd
+build      : |
+    pwd
+    LANG=C make World
+install    : |
+    pwd
+    install -d $installdir/usr/dt
+    install -d $installdir/etc/dt
+    install -d $installdir/var/dt
+    LANG=C admin/IntegTools/dbTools/installCDE -s $(pwd) -destdir $installdir -DontRunScripts
