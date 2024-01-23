@@ -1,6 +1,6 @@
 # Maintainer: rhubarb-geek-nz@users.sourceforge.net
 pkgname=cdesktopenv
-pkgver=2.4.0
+pkgver=2.5.1
 pkgrel=1
 epoch=
 pkgdesc="CDE - Common Desktop Environment"
@@ -9,7 +9,7 @@ url="https://sourceforge.net/projects/cdesktopenv/"
 license=('LGPL2')
 groups=()
 depends=('xorg-server' 'dnsutils' 'libxinerama' 'libxss' 'ncurses' 'openmotif' 'rpcbind' 'xbitmaps' 'ksh' 'tcl' 'compress' 'libxaw' 'xorg-xrdb' 'xorg-xset' 'xorg-xsetroot' 'xorg-mkfontscale' 'xorg-bdftopcf' 'xorg-fonts-100dpi' 'xorg-fonts-75dpi' 'xorg-fonts-misc' 'xorg-fonts-cyrillic' 'xorg-fonts-type1' 'libutempter')
-makedepends=('xorg-server-devel' 'bison' 'flex' 'bc' 'rpcsvc-proto' 'usr-lib-cpp')
+makedepends=('xorg-server-devel' 'git' 'bison' 'flex' 'rpcsvc-proto' 'libtool' 'autoconf' 'automake' 'opensp')
 checkdepends=()
 optdepends=()
 provides=()
@@ -22,23 +22,30 @@ changelog=
 noextract=()
 md5sums=()
 validpgpkeys=()
-source=("https://sourceforge.net/projects/cdesktopenv/files/src/cde-2.4.0.tar.gz")
-sha256sums=("023df9d71f625583f36c2e3f7e57ddf85a8798eda203b40ba583c12c0c446e1e")
+
+prepare() {
+	git clone --branch "$pkgver" --single-branch --recursive https://git.code.sf.net/p/cdesktopenv/code "$pkgname-$pkgver"
+	cd "$pkgname-$pkgver"
+}
 
 build() {
-	cd "cde-$pkgver"
-	LANG=C make World
+	cd "$pkgname-$pkgver/cde"
+	./autogen.sh
+	./configure --disable-static --prefix=/usr/dt --enable-spanish --enable-italian --enable-french --enable-german
+	LANG=C make
+}
+
+check() {
+	cd "$pkgname-$pkgver/cde"
+	ls -ld include/Dt/Dt.h programs/dtksh/dtksh programs/dtdocbook/instant/instant
+	grep "DtVERSION_STRING" include/Dt/Dt.h
+	grep "#define DtVERSION_STRING \"CDE Version $pkgver\"" include/Dt/Dt.h
 }
 
 package() {
-	cd "cde-$pkgver"
+	cd "$pkgname-$pkgver/cde"
+
 	mkdir -p "$pkgdir/usr/lib/systemd/system"
-
-    install -d "$pkgdir/usr/dt"
-    install -d "$pkgdir/etc/dt"
-    install -d "$pkgdir/var/dt"
-
-    LANG=C admin/IntegTools/dbTools/installCDE -s "$(pwd)" -destdir "$pkgdir" -DontRunScripts
 
 	cat > "$pkgdir/usr/lib/systemd/system/dtlogin.service" <<EOF
 [Unit]
@@ -54,5 +61,7 @@ ExecStart=/usr/dt/bin/dtlogin -nodaemon
 Alias=display-manager.service
 EOF
 
-	chmod -w "$pkgdir/usr/lib/systemd/system/dtlogin.service"
+	LANG=C DESTDIR="$pkgdir" make install
+
+	find "$pkgdir" -type f -name "lib*.la" | xargs rm
 }
