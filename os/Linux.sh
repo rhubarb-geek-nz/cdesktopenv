@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: Linux.sh 76 2021-11-30 17:26:25Z rhubarb-geek-nz $
+# $Id: Linux.sh 104 2021-12-13 13:16:18Z rhubarb-geek-nz $
 #
 
 osRelease()
@@ -144,6 +144,8 @@ cleanup()
 			rm -rf "$d"
 		fi
 	done
+
+	rm -rf data.tar.* control.tar.* debian-binary
 }
 
 test -n "$1"
@@ -157,6 +159,8 @@ MAKERPM=false
 MAKEDEB=false
 MADEPKG=false
 MAKESUDO=false
+MAILAPPS="usr/dt/bin/dtmail usr/dt/bin/dtmailpr"
+ROOTAPPS="usr/dt/bin/dtappgather"
 
 SVNREV=$(echo 1+$SVNREV | bc)
 
@@ -233,6 +237,8 @@ RELEASE="$SVNREV.$ID.$VERSION_ID"
 
 if $MAKEDEB
 then
+	find data/usr -type f | xargs chmod -w
+
 	dpkg --print-architecture
 	DPKGARCH=$(dpkg --print-architecture)
 	PATHLIST="$(libconf) data/usr/dt/lib"
@@ -292,9 +298,9 @@ then
 		fi
 	done
 
-	mkdir data/DEBIAN
+	mkdir -p data/control/DEBIAN
 
-	cat > data/DEBIAN/control <<EOF
+	cat > data/control/DEBIAN/control <<EOF
 Package: cdesktopenv
 Version: $VERSION-$RELEASE
 Architecture: $DPKGARCH
@@ -308,17 +314,84 @@ Maintainer: rhubarb-geek-nz@users.sourceforge.net
 Description: CDE - Common Desktop Environment
 EOF
 
-	dpkg-deb --root-owner-group --build data cdesktopenv_"$VERSION-$RELEASE"_"$DPKGARCH".deb
+	(
+		set -e
 
-	rm -rf data/DEBIAN
+		cd data
+
+		dpkg-deb --build control control.deb
+
+		ar x control.deb
+
+		mv debian-binary control.tar.* ..
+
+		DATA_TAR=$(ls data.tar.*)
+
+		ls -ld "$DATA_TAR"
+
+		rm -rf data.tar.* control control.deb
+
+		if test -n "$MAILAPPS"
+		then
+			mkdir mailbox
+
+			mv $MAILAPPS mailbox
+		fi
+
+		if test -n "$ROOTAPPS"
+		then
+			chmod 4555 $ROOTAPPS
+		fi
+
+		tar --owner=0 --group=0 --create --file data.tar */dt
+
+		if test -n "$MAILAPPS"
+		then
+			mv mailbox/* usr/dt/bin
+
+			rmdir mailbox
+
+			chmod 2555 $MAILAPPS
+
+			tar --owner=0 --group=mail --create --file mail.tar $MAILAPPS
+
+			tar --catenate --file data.tar mail.tar
+		fi
+
+		case "$DATA_TAR" in
+			data.tar.gz )
+				gzip data.tar
+				;;
+			data.tar.xz )
+				xz data.tar
+				;;
+			data.tar.zst )
+				zstd --rm data.tar
+				;;
+			* )
+				echo unknown format "$DATA_TAR" >&2
+				false
+				;;
+		esac
+
+		mv "$DATA_TAR" ..
+	)
+
+	ar r cdesktopenv_"$VERSION-$RELEASE"_"$DPKGARCH".deb debian-binary control.tar.* data.tar.*
 
 	MADEPKG=true
 fi
 
 if $MAKERPM
 then
+	find data/usr -type f | xargs chmod -w
+
 	rpmbuild --version
-	cat > rpm.spec <<EOF
+
+	(
+		cd data
+
+		cat <<EOF
 Summary: CDE - Common Desktop Environment
 Name: cdesktopenv
 Version: $VERSION
@@ -338,12 +411,43 @@ licence by The Open Group.
 
 %files
 %defattr(-,root,root)
-/var/dt
-/etc/dt
-/usr/dt
+EOF
+
+		find */dt | while read N
+		do
+			if test -h "$N"
+			then
+				echo "/$N"
+			else
+				if test -d "$N"
+				then
+					echo "%dir %attr(555,root,root) /$N"
+				else
+					case "$N" in
+						usr/dt/bin/dtappgather )
+							echo "%attr(4555,root,root) /$N"
+							;;
+						usr/dt/bin/dtmail | usr/dt/bin/dtmailpr )
+							echo "%attr(2555,root,mail) /$N"
+							;;
+						* )
+							if test -x "$N"
+							then
+								echo "%attr(555,root,root) /$N"
+							else
+								echo "%attr(444,root,root) /$N"
+							fi
+							;;
+					esac
+				fi
+			fi
+		done
+
+		cat <<EOF
 
 %clean
 EOF
+	) > rpm.spec
 
 	PWD=$(pwd)
 	rpmbuild --buildroot "$PWD/data" --define "_rpmdir $PWD/rpms" --define "_build_id_links none" -bb "$PWD/rpm.spec"
