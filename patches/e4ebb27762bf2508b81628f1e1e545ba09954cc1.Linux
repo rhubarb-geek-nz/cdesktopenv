@@ -1,0 +1,13 @@
+diff --git a/cde/programs/dtdocbook/instant/Imakefile b/cde/programs/dtdocbook/instant/Imakefile
+index 08071e9..fdca2e4 100644
+--- a/cde/programs/dtdocbook/instant/Imakefile
++++ b/cde/programs/dtdocbook/instant/Imakefile
+@@ -8,7 +8,7 @@ TCLLIB = -ltcl
+ #if defined(LinuxArchitecture)
+ TCLINC = -I/usr/include/tcl
+ #if DefaultLinuxDistribution == LinuxSuSE
+-TCLLIB = -ltcl8.6
++TCLLIB = -ltcl8.5
+ #endif
+ 
+ #elif defined(FreeBSDArchitecture) || defined(OpenBSDArchitecture)

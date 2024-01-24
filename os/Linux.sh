@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-# $Id: Linux.sh 56 2021-05-27 22:35:00Z rhubarb-geek-nz $
+# $Id: Linux.sh 76 2021-11-30 17:26:25Z rhubarb-geek-nz $
 #
 
 osRelease()
@@ -238,7 +238,7 @@ then
 	PATHLIST="$(libconf) data/usr/dt/lib"
 	SIZE=$(du -sk data)
 	SIZE=$(first $SIZE)
-	PKGLIST="rpcbind tcl ksh x11-xserver-utils xfonts-100dpi xfonts-100dpi-transcoded xfonts-75dpi xfonts-75dpi-transcoded"
+	PKGLIST="rpcbind tcl ksh x11-xserver-utils xfonts-100dpi xfonts-100dpi-transcoded xfonts-75dpi xfonts-75dpi-transcoded libmotif4"
 	LIBLIST=
 	DEPENDS=
 
@@ -346,7 +346,7 @@ licence by The Open Group.
 EOF
 
 	PWD=$(pwd)
-	rpmbuild --buildroot "$PWD/data" --define "_rpmdir $PWD/rpms" -bb "$PWD/rpm.spec"
+	rpmbuild --buildroot "$PWD/data" --define "_rpmdir $PWD/rpms" --define "_build_id_links none" -bb "$PWD/rpm.spec"
 
 	MADEPKG=true
 fi
